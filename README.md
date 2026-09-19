@@ -1,4 +1,4 @@
-# YS CAMERA EDITOR
+# YS REPLAY CAMERA EDITOR
 
 YS REPLAY CAMERA EDITOR is a browser-based replay file editor for YSFlight, inspired by the original YS CAMERA.
 https://usyk05.github.io/ys-replay-camera-editor/
