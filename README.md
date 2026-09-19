@@ -10,7 +10,6 @@ The editor runs entirely in your browser and is platform-independent. Your repla
 ## Requirements
 
 YS CAMERA EDITOR requires the camera aircraft add-ons included with YS CAMERA:
-
 https://forum.ysfhq.com/viewtopic.php?t=7147
 
 It should also work with custom builds of YSFlight, although some compatibility issues may remain.
@@ -36,6 +35,5 @@ A close camera and a distant camera with zoom can produce very different results
 
 ## Development
 
-Further updates and improvements are planned. Feedback and bug reports are welcome.
-
+Further updates and improvements are planned.
 In parallel with this project, I'm also experimenting with visual improvements to YSFlight itself.
