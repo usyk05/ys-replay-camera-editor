@@ -1,0 +1,2506 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Replay Camera Editor for YSFLIGHT SIMULATOR</title>
+<style>
+  :root{
+    --bg0:#0b0f14;
+    --bg1:#111823;
+    --bg2:#161f2c;
+    --panel:#131b26;
+    --line:#233042;
+    --line-soft:#1b2634;
+    --amber:#e8a33d;
+    --amber-dim:#8a6428;
+    --cyan:#5fd0d6;
+    --cyan-dim:#2f6b6e;
+    --text:#dfe8ef;
+    --text-dim:#8fa1b3;
+    --text-faint:#5b6b7d;
+    --danger:#e2645a;
+    --ok:#6fce8b;
+    --mono: 'JetBrains Mono','SFMono-Regular',Consolas,'Courier New',monospace;
+    --disp: 'Rajdhani','Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 700px at 15% -10%, #142033 0%, transparent 60%),
+      radial-gradient(1000px 600px at 110% 10%, #10202a 0%, transparent 55%),
+      var(--bg0);
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:13px;
+    min-height:100vh;
+    padding:28px 20px 60px;
+  }
+  @font-face{font-family:'Rajdhani';src:local('Arial Narrow'),local('Arial');}
+
+  .wrap{max-width:980px;margin:0 auto;}
+
+  /* ---- header / HUD strip ---- */
+  header.hud{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    padding-bottom:14px;margin-bottom:0;
+    position:relative;
+  }
+  .header-note{
+    font-size:11px;color:var(--text-dim);line-height:1.7;
+    padding:12px 0 18px;border-bottom:1px solid var(--line);margin-bottom:22px;
+    position:relative;
+  }
+  .header-note::before{
+    content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
+    background:linear-gradient(90deg, var(--amber) 0%, transparent 35%);
+    opacity:.7;
+  }
+  .header-note a{color:var(--cyan);text-decoration:none;}
+  .header-note a:hover{text-decoration:underline;}
+  .ver{font-size:10px;color:var(--text-faint);font-weight:400;letter-spacing:.04em;margin-left:8px;text-transform:none;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand .glyph{
+    width:34px;height:34px;border:1px solid var(--amber-dim);border-radius:9px;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    background:linear-gradient(135deg,#1a2536,#0e141d);
+  }
+  .brand h1{
+    font-family:var(--disp);font-weight:700;letter-spacing:.12em;
+    font-size:22px;margin:0;text-transform:uppercase;color:var(--text);
+  }
+  .brand .sub{font-size:11px;color:var(--text-dim);letter-spacing:.08em;margin-top:2px;}
+  .status-chip{
+    font-size:11px;color:var(--text-faint);letter-spacing:.08em;text-align:right;
+    line-height:1.6;
+  }
+  .status-chip b{color:var(--cyan);font-weight:600;}
+
+  /* ---- step section ---- */
+  .step{
+    background:linear-gradient(180deg, var(--panel), var(--bg1));
+    border:1px solid var(--line);border-radius:6px;
+    margin-bottom:16px;overflow:hidden;
+    box-shadow:0 1px 0 rgba(255,255,255,.02) inset, 0 8px 20px -14px #000;
+  }
+  .step-head{
+    display:flex;align-items:center;gap:12px;
+    padding:13px 18px;border-bottom:1px solid var(--line-soft);
+    background:linear-gradient(90deg, rgba(232,163,61,.08), transparent 60%);
+  }
+  .step-num{
+    font-family:var(--disp);font-weight:700;font-size:15px;color:var(--bg0);
+    background:var(--amber);width:26px;height:26px;border-radius:3px;
+    display:flex;align-items:center;justify-content:center;flex:none;
+  }
+  .step-num.done{background:var(--ok);}
+  .step-title{
+    font-family:var(--disp);font-weight:700;letter-spacing:.1em;
+    font-size:14.5px;text-transform:uppercase;color:var(--text);
+  }
+  .step-hint{margin-left:auto;font-size:11px;color:var(--text-faint);}
+  .step-body{padding:16px 18px 20px;}
+  .step-body.disabled{opacity:.35;pointer-events:none;filter:grayscale(.4);}
+
+  /* ---- dropzone ---- */
+  .dropzone{
+    border:1.5px dashed var(--line);border-radius:6px;
+    padding:26px 16px;text-align:center;cursor:pointer;
+    background:#0e1520;transition:border-color .15s, background .15s;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--amber);background:#171f1a10;background:#161c14;
+  }
+  .dropzone .big{font-size:13px;color:var(--text);margin-bottom:6px;}
+  .dropzone .small{font-size:11px;color:var(--text-faint);}
+  .dropzone input{display:none;}
+  .filepath-row{
+    display:flex;gap:8px;margin-top:12px;align-items:center;
+  }
+  .filepath-row input{
+    flex:0 1 240px;min-width:120px;background:#0c121a;border:1px solid var(--line);color:var(--text-dim);
+    padding:8px 10px;border-radius:4px;font-family:var(--mono);font-size:12px;
+    text-overflow:ellipsis;overflow:hidden;white-space:nowrap;
+  }
+  .loadmsg{margin-top:10px;font-size:12px;color:var(--ok);min-height:16px;}
+  .loadmsg.err{color:var(--danger);}
+
+  /* ---- form controls ---- */
+  label.field-label{
+    display:block;font-size:11px;letter-spacing:.05em;color:var(--text-dim);
+    text-transform:uppercase;margin-bottom:6px;
+  }
+  select, .textlike{
+    width:100%;background:#0c121a;border:1px solid var(--line);color:var(--text);
+    padding:9px 10px;border-radius:4px;font-family:var(--mono);font-size:12.5px;
+    appearance:none;
+  }
+  select:focus, input:focus, .textlike:focus{outline:1px solid var(--cyan);outline-offset:0;}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 18px;}
+  @media (max-width:640px){.grid2,.grid3{grid-template-columns:1fr;}}
+
+  .slidernum{display:flex;align-items:center;gap:10px;}
+  .slidernum input[type=range]{
+    flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;
+    background:linear-gradient(90deg,var(--amber-dim),var(--line));outline:none;
+  }
+  .slidernum input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+    background:var(--amber);border:2px solid #0c121a;cursor:pointer;
+    box-shadow:0 0 0 1px var(--amber-dim);
+  }
+  .slidernum input[type=range]::-moz-range-thumb{
+    width:14px;height:14px;border-radius:50%;background:var(--amber);
+    border:2px solid #0c121a;cursor:pointer;
+  }
+  .slidernum input[type=number]{
+    width:72px;background:#0c121a;border:1px solid var(--line);color:var(--cyan);
+    padding:7px 8px;border-radius:4px;font-family:var(--mono);font-size:12.5px;text-align:right;
+  }
+  .field{margin-bottom:14px;}
+  .field .unit{color:var(--text-faint);font-size:10.5px;margin-left:4px;}
+
+  .checkrow{display:flex;align-items:center;gap:9px;margin:10px 0;}
+  .checkrow input[type=checkbox]{
+    width:16px;height:16px;accent-color:var(--amber);cursor:pointer;
+  }
+  .checkrow label{font-size:12px;color:var(--text);cursor:pointer;}
+  .checkrow .desc{font-size:10.5px;color:var(--text-faint);margin-left:24px;margin-top:-6px;display:block;}
+
+  /* ---- radio pills ---- */
+  .pillrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .pillrow-stack{flex-direction:column;align-items:flex-start;}
+  .pillrow-stack .pill{width:100%;box-sizing:border-box;}
+  .pill{
+    border:1px solid var(--line);border-radius:20px;padding:8px 16px;
+    font-size:12px;color:var(--text-dim);cursor:pointer;user-select:none;
+    background:#0e1520;transition:.12s;
+  }
+  .pill:hover{border-color:var(--amber-dim);color:var(--text);}
+  .pill.disabled{opacity:.35;cursor:not-allowed;}
+  .pill-sub.disabled{opacity:.35;cursor:not-allowed;}
+  .pill.active{border-color:var(--amber);color:var(--bg0);background:var(--amber);font-weight:600;}
+
+  /* ---- tabs ---- */
+  .tabbar{display:flex;gap:4px;border-bottom:1px solid var(--line-soft);margin-bottom:16px;}
+  .tabbtn{
+    padding:10px 16px;font-size:12px;letter-spacing:.05em;color:var(--text-faint);
+    cursor:pointer;border-bottom:2px solid transparent;text-transform:uppercase;
+    font-family:var(--disp);font-weight:700;
+  }
+  .tabbtn:hover{color:var(--text-dim);}
+  .tabbtn.active{color:var(--amber);border-bottom-color:var(--amber);}
+  .tabpanel{display:none;}
+  .tabpanel.active{display:block;}
+
+  .subselect{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .subselect-row{display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:12px;border-bottom:1px dashed var(--line-soft);}
+  .subselect-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);}
+  .tabbar-sub{display:flex;gap:2px;background:#0c121a;border:1px solid var(--line-soft);border-radius:5px;padding:3px;}
+  .pill-sub{
+    padding:5px 12px;border-radius:3px;font-size:11.5px;color:var(--text-faint);
+    cursor:pointer;user-select:none;transition:.12s;
+  }
+  .pill-sub:hover{color:var(--text-dim);}
+  .pill-sub.active{background:var(--line-soft);color:var(--amber);font-weight:600;}
+
+  .panel-note{
+    font-size:11px;color:var(--text-dim);background:#0e1520;border:1px solid var(--line-soft);
+    border-left:2px solid var(--cyan-dim);border-radius:3px;padding:9px 12px;margin-bottom:16px;line-height:1.6;
+  }
+  .panel-note.warn{border-left-color:var(--amber-dim);}
+
+  .rndbtn{
+    display:inline-flex;align-items:center;gap:6px;
+    background:#0e1520;border:1px solid var(--line);color:var(--cyan);
+    padding:8px 14px;border-radius:4px;font-family:var(--mono);font-size:11.5px;
+    cursor:pointer;letter-spacing:.04em;
+  }
+  .rndbtn:hover{border-color:var(--cyan);}
+  .rndbtn:active{transform:translateY(1px);}
+  .section-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .section-toolbar h3{
+    font-family:var(--disp);font-size:13px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--text-dim);margin:0;font-weight:700;
+  }
+
+  hr.sep{border:none;border-top:1px solid var(--line-soft);margin:22px 0;}
+
+  .gobtn{
+    width:100%;background:linear-gradient(180deg,#f0b458,var(--amber));
+    color:#231604;border:none;border-radius:5px;padding:14px;
+    font-family:var(--disp);font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    font-size:14px;cursor:pointer;
+  }
+  .gobtn-auto{width:auto;display:inline-block;padding:14px 32px;}
+  .gobtn:hover{filter:brightness(1.06);}
+  .gobtn:disabled{background:var(--line);color:var(--text-faint);cursor:not-allowed;filter:none;}
+
+  .log{
+    margin-top:14px;background:#080c11;border:1px solid var(--line-soft);border-radius:4px;
+    padding:10px 12px;font-size:11px;color:var(--text-dim);max-height:180px;overflow:auto;
+    white-space:pre-wrap;line-height:1.7;
+  }
+  .log .l-ok{color:var(--ok);}
+  .log .l-err{color:var(--danger);}
+  .log .l-warn{color:var(--amber);}
+
+  .dlrow{
+    margin-top:14px;display:flex;align-items:center;gap:12px;
+    background:#0e1520;border:1px solid var(--line-soft);border-radius:5px;padding:12px 14px;
+  }
+  .dlrow .dlname{font-size:12px;color:var(--cyan);word-break:break-all;flex:1;}
+  .dlbtn{
+    background:var(--cyan-dim);color:#eafcfc;border:1px solid var(--cyan);border-radius:4px;
+    padding:8px 16px;font-family:var(--mono);font-size:12px;cursor:pointer;text-decoration:none;
+    white-space:nowrap;
+  }
+
+  footer{text-align:center;color:var(--text-faint);font-size:10.5px;margin-top:30px;letter-spacing:.04em;}
+  footer a{color:var(--cyan);text-decoration:none;}
+  footer a:hover{text-decoration:underline;}
+
+  .fixedpad-row{display:flex;gap:22px;flex-wrap:nowrap;align-items:flex-start;margin-bottom:16px;}
+  .fixedpad-wrap{flex:0 0 220px;width:220px;text-align:center;}
+  .fixedpad-caption{font-size:10.5px;color:var(--text-faint);margin-top:8px;line-height:1.5;}
+  .fixedpad-fields{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:1fr;gap:14px;}
+  @media (max-width:560px){
+    .fixedpad-row{flex-direction:column;align-items:center;}
+    .fixedpad-fields{width:100%;max-width:320px;}
+  }
+  .pad-svg{background:#0c121a;border:1px solid var(--line);border-radius:50%;cursor:grab;touch-action:none;}
+  .pad-svg:active{cursor:grabbing;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hud">
+    <div class="brand">
+      <div class="glyph">
+        <svg viewBox="0 0 100 100" width="22" height="22">
+          <rect x="12" y="30" width="52" height="40" rx="8" fill="#e8a33d"/>
+          <polygon points="64,42 88,28 88,72 64,58" fill="#e8a33d"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Replay Camera Editor <span style="color:var(--text-faint);font-weight:400;">/ Web</span> <span class="ver">v.20260901</span></h1>
+        <div class="sub">for YSFLIGHT SIMULATOR</div>
+      </div>
+    </div>
+    <div class="status-chip">
+      <span data-i18n="statusChip"></span>
+    </div>
+  </header>
+  <div class="header-note">
+    <span data-i18n="headerNote"></span>
+  </div>
+
+  <!-- STEP 1 -->
+  <section class="step">
+    <div class="step-head">
+      <div class="step-num" id="num1">1</div>
+      <div class="step-title" data-i18n="step1Title"></div>
+      <div class="step-hint" data-i18n="step1Hint"></div>
+    </div>
+    <div class="step-body">
+      <div class="dropzone" id="dropzone">
+        <div class="big" data-i18n="dropzoneBig"></div>
+        <div class="small" data-i18n="dropzoneSmall"></div>
+        <input type="file" id="fileInput" accept=".yfs">
+      </div>
+      <div class="loadmsg" id="loadMsg"></div>
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="step">
+    <div class="step-head">
+      <div class="step-num" id="num2">2</div>
+      <div class="step-title" data-i18n="step2Title"></div>
+      <div class="step-hint" data-i18n="step2Hint"></div>
+    </div>
+    <div class="step-body disabled" id="body2">
+      <label class="field-label" data-i18n="targetAircraftLabel"></label>
+      <select id="targetSelect"></select>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="step">
+    <div class="step-head">
+      <div class="step-num" id="num3">3</div>
+      <div class="step-title" data-i18n="step3Title"></div>
+      <div class="step-hint" data-i18n="step3Hint"></div>
+    </div>
+    <div class="step-body disabled" id="body3">
+
+      <div class="pillrow" id="cameraTypePills">
+        <div class="pill active" data-type="rotation" data-i18n="camTypeRotation"></div>
+        <div class="pill" data-type="fixed" data-i18n="camTypeFixed"></div>
+        <div class="pill" data-type="aircraft" data-i18n="camTypeAircraft"></div>
+      </div>
+
+      <!-- ROTATION PANEL -->
+      <div class="typepanel" id="panel-rotation">
+        <div class="subselect-row">
+          <span class="subselect-label" data-i18n="styleLabel"></span>
+          <div class="tabbar-sub" id="rotStylePills">
+            <div class="pill-sub active" data-style="orbit" data-i18n="styleOrbit"></div>
+            <div class="pill-sub" data-style="pass" data-i18n="stylePass"></div>
+          </div>
+        </div>
+
+        <!-- ORBIT fields -->
+        <div id="rot_orbit_fields">
+          <div class="fixedpad-row">
+            <div class="fixedpad-wrap">
+              <svg id="orbitPad" class="pad-svg" viewBox="0 0 220 220" width="220" height="220"></svg>
+              <div class="fixedpad-caption" data-i18n="orbitCaption"></div>
+            </div>
+            <div class="fixedpad-fields">
+              <div class="field">
+                <label class="field-label" data-i18n="orbitDistanceLabel"></label>
+                <div class="slidernum">
+                  <input type="range" id="rot_distance_s" min="5" max="120" step="1">
+                  <input type="number" id="rot_distance_n" min="5" max="120" step="any">
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label" data-i18n="heightOffsetLabel"></label>
+                <div class="slidernum">
+                  <input type="range" id="rot_height_s" min="-60" max="60" step="1">
+                  <input type="number" id="rot_height_n" min="-500" max="500" step="any">
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label" data-i18n="orbitSpeedLabel"></label>
+                <div class="slidernum">
+                  <input type="range" id="rot_speed_s" min="1" max="30" step="0.5">
+                  <input type="number" id="rot_speed_n" min="0.1" max="90" step="any">
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label" data-i18n="vwanderLabel"></label>
+                <div class="slidernum">
+                  <input type="range" id="rot_vwander_s" min="0" max="45" step="1">
+                  <input type="number" id="rot_vwander_n" min="0" max="89" step="any">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="subselect-row" style="margin-top:2px;margin-bottom:14px;">
+            <span class="subselect-label" data-i18n="directionLabel"></span>
+            <div class="tabbar-sub" id="rotDirPills">
+              <div class="pill-sub active" data-dir="cw" data-i18n="dirCw"></div>
+              <div class="pill-sub" data-dir="ccw" data-i18n="dirCcw"></div>
+            </div>
+          </div>
+          <div class="checkrow">
+            <input type="checkbox" id="rot_orbit_follow" checked>
+            <label for="rot_orbit_follow" data-i18n="orbitFollowLabel"></label>
+          </div>
+        </div>
+
+        <!-- PASS fields -->
+        <div id="rot_pass_fields" style="display:none;">
+          <div class="fixedpad-row">
+            <div class="fixedpad-wrap">
+              <svg id="passPad" class="pad-svg" viewBox="0 0 220 220" width="220" height="220"></svg>
+              <div class="fixedpad-caption" data-i18n="passCaption"></div>
+            </div>
+            <div class="fixedpad-fields">
+              <div class="field">
+                <label class="field-label" data-i18n="offsetXLabel"></label>
+                <div class="slidernum">
+                  <input type="range" id="rot_offx_s" min="-60" max="60" step="1">
+                  <input type="number" id="rot_offx_n" min="-500" max="500" step="any">
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label" data-i18n="offsetYLabel"></label>
+                <div class="slidernum">
+                  <input type="range" id="rot_offy_s" min="-60" max="60" step="1">
+                  <input type="number" id="rot_offy_n" min="-500" max="500" step="any">
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label" data-i18n="offsetZLabel"></label>
+                <div class="slidernum">
+                  <input type="range" id="rot_offz_s" min="-60" max="60" step="1">
+                  <input type="number" id="rot_offz_n" min="-500" max="500" step="any">
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label" data-i18n="passMaxLabel"></label>
+                <div class="slidernum">
+                  <input type="range" id="rot_passmax_s" min="5" max="120" step="1">
+                  <input type="number" id="rot_passmax_n" min="1" max="120" step="any">
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label" data-i18n="passPeriodLabel"></label>
+                <div class="slidernum">
+                  <input type="range" id="rot_passper_s" min="4" max="120" step="1">
+                  <input type="number" id="rot_passper_n" min="1" max="1800" step="any">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="checkrow">
+            <input type="checkbox" id="rot_pass_follow">
+            <label for="rot_pass_follow" data-i18n="passFollowLabel"></label>
+          </div>
+        </div>
+
+        <div class="section-toolbar" style="margin-top:6px;">
+          <span></span>
+          <div style="display:flex;gap:8px;">
+            <div class="rndbtn" data-reset="rotation" data-i18n="resetRotation"></div>
+            <div class="rndbtn" data-random="rotation" data-i18n="randomRotation"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FIXED PANEL -->
+      <div class="typepanel" id="panel-fixed" style="display:none;">
+        <div class="panel-note" data-i18n="fixedNote"></div>
+
+        <div class="fixedpad-row">
+          <div class="fixedpad-wrap">
+            <svg id="fixedPad" class="pad-svg" viewBox="0 0 220 220" width="220" height="220"></svg>
+            <div class="fixedpad-caption" data-i18n="fixedCaption"></div>
+          </div>
+          <div class="fixedpad-fields">
+            <div class="field">
+              <label class="field-label" data-i18n="fixDistanceLabel"></label>
+              <div class="slidernum">
+                <input type="range" id="fix_distance_s" min="5" max="100" step="1">
+                <input type="number" id="fix_distance_n" min="1" max="100" step="any">
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label" data-i18n="fixAzimuthLabel"></label>
+              <div class="slidernum">
+                <input type="range" id="fix_azimuth_s" min="0" max="359" step="1">
+                <input type="number" id="fix_azimuth_n" min="0" max="359" step="any">
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label" data-i18n="fixElevLabel"></label>
+              <div class="slidernum">
+                <input type="range" id="fix_elev_s" min="-89" max="89" step="1">
+                <input type="number" id="fix_elev_n" min="-89" max="89" step="any">
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label" data-i18n="fixDriftLabel"></label>
+              <div class="slidernum">
+                <input type="range" id="fix_drift_s" min="0" max="20" step="1">
+                <input type="number" id="fix_drift_n" min="0" max="60" step="any">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="checkrow">
+          <input type="checkbox" id="fix_follow" checked>
+          <label for="fix_follow" data-i18n="fixFollowLabel"></label>
+        </div>
+
+        <div class="section-toolbar" style="margin-top:14px;">
+          <span></span>
+          <div style="display:flex;gap:8px;">
+            <div class="rndbtn" data-reset="fixed" data-i18n="resetFixed"></div>
+            <div class="rndbtn" data-random="fixed" data-i18n="randomFixed"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AIRCRAFT PANEL -->
+      <div class="typepanel" id="panel-aircraft" style="display:none;">
+        <div class="panel-note" data-i18n="aircraftNote"></div>
+        <label class="field-label" data-i18n="mountAircraftLabel"></label>
+        <select id="mountSelect" style="margin-bottom:16px;"></select>
+
+        <div class="fixedpad-row">
+          <div class="fixedpad-wrap">
+            <svg id="aircraftPad" class="pad-svg" viewBox="0 0 220 220" width="220" height="220"></svg>
+            <div class="fixedpad-caption" data-i18n="aircraftCaption"></div>
+          </div>
+          <div class="fixedpad-fields">
+            <div class="field">
+              <label class="field-label" data-i18n="airDistanceLabel"></label>
+              <div class="slidernum">
+                <input type="range" id="air_distance_s" min="0" max="60" step="0.5">
+                <input type="number" id="air_distance_n" min="0" max="60" step="any">
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label" data-i18n="airAzimuthLabel"></label>
+              <div class="slidernum">
+                <input type="range" id="air_azimuth_s" min="0" max="359" step="1">
+                <input type="number" id="air_azimuth_n" min="0" max="359" step="any">
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label" data-i18n="airElevLabel"></label>
+              <div class="slidernum">
+                <input type="range" id="air_elev_s" min="-89" max="89" step="1">
+                <input type="number" id="air_elev_n" min="-89" max="89" step="any">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="checkrow">
+          <input type="checkbox" id="air_transparent">
+          <label for="air_transparent" data-i18n="airTransparentLabel"></label>
+        </div>
+        <span class="desc" data-i18n="airTransparentDesc"></span>
+
+        <div class="section-toolbar" style="margin-top:16px;">
+          <span></span>
+          <div style="display:flex;gap:8px;">
+            <div class="rndbtn" data-reset="aircraft" data-i18n="resetAircraft"></div>
+            <div class="rndbtn" data-random="aircraft" data-i18n="randomAircraft"></div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="sep">
+
+      <div class="section-toolbar">
+        <h3 data-i18n="shakeTitle"></h3>
+        <span></span>
+      </div>
+      <div class="field" style="max-width:420px;">
+        <label class="field-label" data-i18n="sampleRateLabel"></label>
+        <div class="slidernum">
+          <input type="range" id="sh_hz_s" min="5" max="30" step="1">
+          <input type="number" id="sh_hz_n" min="2" max="60" step="any">
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label class="field-label" data-i18n="shakeDistLabel"></label>
+          <div class="slidernum">
+            <input type="range" id="sh_dist_s" min="0" max="5" step="0.1">
+            <input type="number" id="sh_dist_n" min="0" max="20" step="any">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" data-i18n="shakeYawLabel"></label>
+          <div class="slidernum">
+            <input type="range" id="sh_yaw_s" min="0" max="30" step="0.5">
+            <input type="number" id="sh_yaw_n" min="0" max="90" step="any">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" data-i18n="shakePitchLabel"></label>
+          <div class="slidernum">
+            <input type="range" id="sh_pitch_s" min="0" max="30" step="0.5">
+            <input type="number" id="sh_pitch_n" min="0" max="90" step="any">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" data-i18n="shakeRollLabel"></label>
+          <div class="slidernum">
+            <input type="range" id="sh_roll_s" min="0" max="30" step="0.5">
+            <input type="number" id="sh_roll_n" min="0" max="90" step="any">
+          </div>
+        </div>
+      </div>
+      <div class="section-toolbar" style="margin-top:6px;justify-content:flex-end;">
+        <div style="display:flex;gap:8px;">
+          <div class="rndbtn" data-reset="shake" data-i18n="resetShake"></div>
+          <div class="rndbtn" data-random="shake" data-i18n="randomShake"></div>
+        </div>
+      </div>
+
+      <hr class="sep">
+
+      <div class="section-toolbar"><h3 data-i18n="camAircraftTypeTitle"></h3><span></span></div>
+      <div class="tabbar-sub" id="soundPills" style="display:inline-flex;">
+        <div class="pill-sub active" data-sound="jet" data-i18n="soundJet"></div>
+        <div class="pill-sub" data-sound="prop" data-i18n="soundProp"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="step">
+    <div class="step-head">
+      <div class="step-num" id="num4">4</div>
+      <div class="step-title" data-i18n="step4Title"></div>
+      <div class="step-hint" data-i18n="step4Hint"></div>
+    </div>
+    <div class="step-body disabled" id="body4">
+
+      <label class="field-label" data-i18n="saveLocationLabel"></label>
+      <div class="tabbar-sub" id="saveLocPills" style="display:inline-flex;flex-wrap:wrap;">
+        <div class="pill-sub active" data-loc="same" data-i18n="saveLocSame"></div>
+        <div class="pill-sub" data-loc="custom" data-i18n="saveLocCustom"></div>
+      </div>
+      <div id="saveLocCustomRow" class="filepath-row">
+        <input type="text" id="saveLocPath" readonly data-i18n-ph="saveLocPathPh">
+        <button type="button" class="rndbtn" id="saveLocBrowseBtn" data-i18n="browseBtn"></button>
+      </div>
+      <div class="loadmsg" id="saveLocMsg" style="color:var(--text-faint);"></div>
+
+      <div style="text-align:center;margin-top:14px;">
+        <button class="gobtn gobtn-auto" id="generateBtn" data-i18n="generateBtn"></button>
+      </div>
+      <div class="log" id="log" style="display:none;"></div>
+    </div>
+  </section>
+
+  <footer><span data-i18n="footerText"></span> <a href="https://www.youtube.com/@usyk05" target="_blank" rel="noopener noreferrer">usyk</a></footer>
+</div>
+
+<script>
+/* =========================================================================
+   YS CAMERA CREATOR / WEB
+   Parses a YSFLIGHT replay (.yfs), computes a synthetic "camera aircraft"
+   flight track (orbit / fixed / mounted), and injects it back into the
+   file as a normal (invisible) AIRPLANE block using the <<CAMERA>> /
+   <<CAMERA-P>> addon aircraft.
+   ========================================================================= */
+
+(function(){
+"use strict";
+
+const I18N = {
+  ja:   {
+    statusChip: 'すべての処理はブラウザ内で完結します',
+    headerNote: '使用するにはKurosaki氏制作の<a href="https://forum.ysfhq.com/viewtopic.php?t=7147" target="_blank" rel="noopener noreferrer">YS CAMERA</a>に含まれる&lt;&lt;CAMERA&gt;&gt;/&lt;&lt;CAMERA-P&gt;&gt;のアドオン機体が必要です。',
+    step1Title: 'リプレイを開く',
+    step1Hint: 'リプレイファイルを読み込む',
+    dropzoneBig: 'リプレイファイル(.yfs)をドロップ、またはクリックして選択',
+    dropzoneSmall: '元のリプレイの飛行データ（位置・姿勢）は変更されません',
+    step2Title: '撮影対象を選択',
+    step2Hint: 'カメラが追従する撮影対象',
+    targetAircraftLabel: '撮影対象機',
+    step3Title: 'カメラ設定',
+    step3Hint: 'カメラの種類・動き・揺れ',
+    camTypeRotation: 'カメラ軌道',
+    camTypeFixed: '定点追従',
+    camTypeAircraft: 'Aircraft Camera',
+    styleLabel: 'スタイル',
+    styleOrbit: '周回',
+    stylePass: '通過',
+    orbitCaption: '円＝対象からの距離<br>矢印＝周回方向',
+    orbitDistanceLabel: 'Distance <span class="unit">m — 対象からの距離</span>',
+    heightOffsetLabel: 'Height Offset <span class="unit">m — 高低差</span>',
+    orbitSpeedLabel: 'Orbit Speed <span class="unit">deg/s — 周回速度</span>',
+    vwanderLabel: 'Vertical Wander <span class="unit">deg — 上下の揺らぎ</span>',
+    directionLabel: '回転方向',
+    dirCw: '時計回り',
+    dirCcw: '反時計回り',
+    orbitFollowLabel: '姿勢変化に周回面と傾きも追従',
+    passCaption: '上＝進行方向<br>〇＝基準点 (Offset X/Z)<br>線＝カメラのルート',
+    offsetXLabel: 'Offset X <span class="unit">m — 右+/左-</span>',
+    offsetYLabel: 'Offset Y <span class="unit">m — 上+/下-</span>',
+    offsetZLabel: 'Offset Z <span class="unit">m — 前+/後-</span>',
+    passMaxLabel: 'Pass Max Distance <span class="unit">m — 振れ幅</span>',
+    passPeriodLabel: 'Pass Period <span class="unit">s — 1往復の時間</span>',
+    passFollowLabel: '姿勢変化にレールと傾きも追従',
+    resetRotation: '&#8634; パネルをリセット',
+    randomRotation: '&#8635; パネルをランダム生成',
+    resetFixed: '&#8634; パネルをリセット',
+    randomFixed: '&#8635; パネルをランダム生成',
+    resetAircraft: '&#8634; パネルをリセット',
+    randomAircraft: '&#8635; パネルをランダム生成',
+    resetShake: '&#8634; 手ブレをリセット',
+    randomShake: '&#8635; 手ブレをランダム生成',
+    fixedNote: '対象機からの方位・仰角・距離を固定して追従します。カメラをドラッグして位置を調整できます。',
+    fixedCaption: '上＝進行方向<br>距離＝Distance',
+    fixDistanceLabel: 'Distance <span class="unit">m</span>',
+    fixAzimuthLabel: 'Azimuth <span class="unit">deg — 0=前 90=右 180=後 270=左</span>',
+    fixElevLabel: 'Elevation <span class="unit">deg — 見上げ/見下ろし角</span>',
+    fixDriftLabel: 'Slow Drift <span class="unit">deg — 揺らぎ</span>',
+    fixFollowLabel: '姿勢変化に位置と傾きも追従',
+    aircraftNote: 'カメラ機の任意の位置にカメラを固定し、対象機を撮影します。',
+    mountAircraftLabel: 'カメラ搭載機体',
+    aircraftCaption: 'オレンジ＝カメラ担当機(固定)<br>シアン＝撮影対象（ドラッグ可・目安のみ、数値には反映されません）',
+    airDistanceLabel: 'Distance <span class="unit">m</span>',
+    airAzimuthLabel: 'Azimuth <span class="unit">deg — 0=前 90=右 180=後 270=左</span>',
+    airElevLabel: 'Elevation <span class="unit">deg — 見上げ/見下ろし角</span>',
+    airTransparentLabel: 'この搭乗機体も &lt;&lt;CAMERA&gt;&gt; に置き換えて透明化する',
+    airTransparentDesc: 'チェックを入れるとカメラ機もリプレイ上で見えなくなります。',
+    shakeTitle: '手ブレの設定',
+    sampleRateLabel: 'サンプルレート <span class="unit">Hz — 高いほど滑らか・ファイルは大きくなる</span>',
+    shakeDistLabel: '手ブレ幅 <span class="unit">m</span>',
+    shakeYawLabel: '手ブレ ヨー <span class="unit">deg</span>',
+    shakePitchLabel: '手ブレ ピッチ <span class="unit">deg</span>',
+    shakeRollLabel: '手ブレ ロール <span class="unit">deg</span>',
+    camAircraftTypeTitle: '機種・エンジン音（任意）',
+    soundJet: 'Jet — &lt;&lt;CAMERA&gt;&gt;',
+    soundProp: 'Propeller — &lt;&lt;CAMERA-P&gt;&gt;',
+    step4Title: 'リプレイを保存',
+    step4Hint: '新しいリプレイを保存',
+    saveLocationLabel: '保存先',
+    saveLocSame: '入力ファイルと同じ場所',
+    saveLocCustom: '保存先を指定',
+    browseBtn: '選択&hellip;',
+    generateBtn: 'リプレイを作成・保存',
+    footerText: 'Replay Camera Editor for YSFLIGHT SIMULATOR / Concept by',
+    saveLocPathPh: 'ダウンロードフォルダ（既定）',
+    msgNoAirplane: 'AIRPLANE ブロックが見つかりませんでした。ファイルを確認してください。',
+    msgLoaded: '読み込み完了 {file}：{count} 機体のリプレイデータを検出しました。',
+    msgLoadError: '読み込みエラー: {err}',
+    msgReadError: 'ファイルの読み込みに失敗しました。',
+    optRecords: '{label}  [{count} records]',
+    optSameAsTarget: '{label} (対象と同一)',
+    fsaUnsupported: 'このブラウザは保存先の選択に対応していません。ファイルは通常どおりダウンロードフォルダに保存されます。',
+    fsaNoHandle: '「入力ファイルと同じ場所」は、ファイル選択ダイアログ（クリックまたはドラッグ＆ドロップ）で開いた場合のみ使えます。',
+    logNeedFile: '先に STEP1 でファイルを読み込んでください。',
+    logTarget: '対象機体: {label}',
+    logCameraType: 'カメラタイプ: {type}',
+    logMount: '搭乗機体: {label}',
+    logCameraCalcError: 'カメラ計算エラー: {err}',
+    logFramesComputed: 'カメラ座標を {count} フレーム分計算しました（{hz}Hz）。',
+    logBlockCreated: '新しい機体ブロックを作成しました (IDANDTAG {id}, {name})。',
+    logMountTransparent: '搭乗機体 {name1} を {name2} に置き換えて透明化します。',
+    logSaved: '保存しました: {name}',
+    logSaveCancelled: '保存をキャンセルしました。',
+    logSaveFallback: 'この方法での保存に失敗したため、通常のダウンロードにフォールバックします。: {err}',
+    logSaveCustomFallback: '選択した場所への保存に失敗したため、通常のダウンロードにフォールバックします。: {err}',
+    logDownloading: 'ダウンロードフォルダに保存されます: {name}',
+    logDone: '完了: {name}',
+  },
+  en:   {
+    statusChip: 'All processing happens locally in your browser',
+    headerNote: 'Requires the &lt;&lt;CAMERA&gt;&gt;/&lt;&lt;CAMERA-P&gt;&gt; add-on aircraft included with <a href="https://forum.ysfhq.com/viewtopic.php?t=7147" target="_blank" rel="noopener noreferrer">YS CAMERA</a> by Kurosaki.',
+    step1Title: 'Open Replay File',
+    step1Hint: 'Load a replay file',
+    dropzoneBig: 'Select a Replay File (.yfs) — drag &amp; drop or click',
+    dropzoneSmall: 'Recorded flight paths are not modified',
+    step2Title: 'Select Target Aircraft',
+    step2Hint: 'The aircraft the camera will follow',
+    targetAircraftLabel: 'Target Aircraft',
+    step3Title: 'Set Camera',
+    step3Hint: 'Camera type, motion &amp; shake',
+    camTypeRotation: 'Camera Path',
+    camTypeFixed: 'Fixed',
+    camTypeAircraft: 'Aircraft Camera',
+    styleLabel: 'Style',
+    styleOrbit: 'Orbit',
+    stylePass: 'Pass',
+    orbitCaption: 'circle = distance from target<br>arrow = orbit direction',
+    orbitDistanceLabel: 'Distance <span class="unit">m — distance from target</span>',
+    heightOffsetLabel: 'Height Offset <span class="unit">m</span>',
+    orbitSpeedLabel: 'Orbit Speed <span class="unit">deg/s</span>',
+    vwanderLabel: 'Vertical Wander <span class="unit">deg</span>',
+    directionLabel: 'Direction',
+    dirCw: 'CW',
+    dirCcw: 'CCW',
+    orbitFollowLabel: 'Orbit plane &amp; roll follow attitude',
+    passCaption: 'up = heading<br>dot = ref. point (X/Z)<br>line = camera route',
+    offsetXLabel: 'Offset X <span class="unit">m — right+/left-</span>',
+    offsetYLabel: 'Offset Y <span class="unit">m — up+/down-</span>',
+    offsetZLabel: 'Offset Z <span class="unit">m — fwd+/aft-</span>',
+    passMaxLabel: 'Pass Max Distance <span class="unit">m</span>',
+    passPeriodLabel: 'Pass Period <span class="unit">s</span>',
+    passFollowLabel: 'Rail &amp; roll follow attitude',
+    resetRotation: '&#8634; Reset Panel',
+    randomRotation: '&#8635; Randomize Panel',
+    resetFixed: '&#8634; Reset Panel',
+    randomFixed: '&#8635; Randomize Panel',
+    resetAircraft: '&#8634; Reset Panel',
+    randomAircraft: '&#8635; Randomize Panel',
+    resetShake: '&#8634; Reset Shake',
+    randomShake: '&#8635; Randomize Shake',
+    fixedNote: 'Follow the target at a fixed angle and distance. Drag to adjust.',
+    fixedCaption: 'up = heading<br>distance = Distance',
+    fixDistanceLabel: 'Distance <span class="unit">m</span>',
+    fixAzimuthLabel: 'Azimuth <span class="unit">deg — 0=ahead 90=right 180=behind 270=left</span>',
+    fixElevLabel: 'Elevation <span class="unit">deg</span>',
+    fixDriftLabel: 'Slow Drift <span class="unit">deg</span>',
+    fixFollowLabel: 'Position &amp; roll follow attitude',
+    aircraftNote: 'Place the camera anywhere on the mount aircraft and aim at the target.',
+    mountAircraftLabel: 'Mount Aircraft',
+    aircraftCaption: 'orange = mount aircraft (fixed)<br>cyan = target (drag — guide only, not a real value)',
+    airDistanceLabel: 'Distance <span class="unit">m</span>',
+    airAzimuthLabel: 'Azimuth <span class="unit">deg — 0=ahead 90=right 180=behind 270=left</span>',
+    airElevLabel: 'Elevation <span class="unit">deg</span>',
+    airTransparentLabel: 'Also replace this mount aircraft with &lt;&lt;CAMERA&gt;&gt; (make it invisible)',
+    airTransparentDesc: 'When checked, the camera aircraft is also hidden in the replay.',
+    shakeTitle: 'Camera Shake',
+    sampleRateLabel: 'Sample Rate <span class="unit">Hz — higher = smoother, larger file</span>',
+    shakeDistLabel: 'Shake Distance <span class="unit">m</span>',
+    shakeYawLabel: 'Shake Yaw <span class="unit">deg</span>',
+    shakePitchLabel: 'Shake Pitch <span class="unit">deg</span>',
+    shakeRollLabel: 'Shake Roll <span class="unit">deg</span>',
+    camAircraftTypeTitle: 'Camera Aircraft Type (Optional)',
+    soundJet: 'Jet — &lt;&lt;CAMERA&gt;&gt;',
+    soundProp: 'Propeller — &lt;&lt;CAMERA-P&gt;&gt;',
+    step4Title: 'Save Replay File',
+    step4Hint: 'Export the new replay',
+    saveLocationLabel: 'Save Location',
+    saveLocSame: 'Same as input file',
+    saveLocCustom: 'Choose Save Location',
+    browseBtn: 'Browse&hellip;',
+    generateBtn: 'Create &amp; Save Replay',
+    footerText: 'Replay Camera Editor for YSFLIGHT SIMULATOR / Concept by',
+    saveLocPathPh: 'Downloads folder (default)',
+    msgNoAirplane: 'No AIRPLANE block was found in this file.',
+    msgLoaded: 'Loaded {file}: {count} recorded aircraft found.',
+    msgLoadError: 'Load error: {err}',
+    msgReadError: 'Failed to read the file.',
+    optRecords: '{label}  [{count} records]',
+    optSameAsTarget: '{label} (same as target)',
+    fsaUnsupported: 'This browser doesn\'t support choosing a save location — files will download to your default Downloads folder.',
+    fsaNoHandle: '"Same as input file" is only available when the file was opened via the file picker or drag-and-drop with handle support.',
+    logNeedFile: 'Load a file in STEP1 first.',
+    logTarget: 'Target: {label}',
+    logCameraType: 'Camera type: {type}',
+    logMount: 'Mount aircraft: {label}',
+    logCameraCalcError: 'Camera calculation error: {err}',
+    logFramesComputed: 'Computed {count} camera frames at {hz}Hz.',
+    logBlockCreated: 'Created new aircraft block (IDANDTAG {id}, {name}).',
+    logMountTransparent: 'Replacing mount aircraft {name1} with {name2} (invisible).',
+    logSaved: 'Saved: {name}',
+    logSaveCancelled: 'Save cancelled.',
+    logSaveFallback: 'Save failed, falling back to a normal download: {err}',
+    logSaveCustomFallback: 'Save to the chosen location failed, falling back to a normal download: {err}',
+    logDownloading: 'Downloading to your Downloads folder: {name}',
+    logDone: 'Done: {name}',
+  }
+};
+
+/* -------------------------------------------------------------------------
+   0b. i18n runtime: browser-language auto-detect (navigator.language),
+   applied to every [data-i18n] / [data-i18n-ph] element, plus a t(key,vars)
+   helper for the JS-generated status/log strings. No manual language
+   switch is offered -- this only decides ja vs en once, from the browser.
+   ------------------------------------------------------------------------- */
+function detectLang(){
+  const nl = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+  return nl.indexOf('ja') === 0 ? 'ja' : 'en';
+}
+const CURRENT_LANG = detectLang();
+function t(key, vars){
+  let s = (I18N[CURRENT_LANG] && I18N[CURRENT_LANG][key] !== undefined) ? I18N[CURRENT_LANG][key] : (I18N.en[key] || key);
+  if (vars){
+    Object.keys(vars).forEach(k=>{ s = s.split('{'+k+'}').join(vars[k]); });
+  }
+  return s;
+}
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    if (I18N[CURRENT_LANG] && I18N[CURRENT_LANG][key] !== undefined) el.innerHTML = I18N[CURRENT_LANG][key];
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    const key = el.getAttribute('data-i18n-ph');
+    if (I18N[CURRENT_LANG] && I18N[CURRENT_LANG][key] !== undefined) el.setAttribute('placeholder', I18N[CURRENT_LANG][key]);
+  });
+  document.documentElement.setAttribute('lang', CURRENT_LANG);
+}
+
+
+/* -------------------------------------------------------------------------
+   0. Small math helpers
+   ------------------------------------------------------------------------- */
+const D2R = Math.PI/180, R2D = 180/Math.PI;
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function lerp(a,b,t){return a+(b-a)*t;}
+function wrapPi(a){ a = ((a+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI; return a; }
+function lerpAngle(a,b,t){
+  let d = wrapPi(b-a);
+  return a + d*t;
+}
+
+// deterministic PRNG (mulberry32)
+function mulberry32(seed){
+  let a = seed>>>0;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a>>>15), 1 | a);
+    t = (t + Math.imul(t ^ (t>>>7), 61 | t)) ^ t;
+    return ((t ^ (t>>>14))>>>0) / 4294967296;
+  };
+}
+let rngGlobal = mulberry32(Date.now() & 0xffffffff);
+function rnd(){ return rngGlobal(); }
+function rndRange(lo,hi){ return lo + rnd()*(hi-lo); }
+function rndRange05(lo,hi){ return Math.round((lo + rnd()*(hi-lo))*2)/2; }
+
+/* -------------------------------------------------------------------------
+   1. Body-axis basis vectors from (heading H, pitch P, bank B) — all radians.
+   Convention empirically derived from real .yfs flight data:
+     forward = (-sin H cos P, sin P, cos H cos P)
+   ------------------------------------------------------------------------- */
+function basisFromHPB(H,P,B){
+  const sh=Math.sin(H), ch=Math.cos(H), sp=Math.sin(P), cp=Math.cos(P), sb=Math.sin(B), cb=Math.cos(B);
+  const forward = { x:-sh*cp, y:sp, z:ch*cp };
+  const right = { x: cb*ch - sb*sp*sh, y: -sb*cp, z: cb*sh + sb*sp*ch };
+  const up    = { x: sb*ch + cb*sp*sh, y: cb*cp, z: sb*sh - cb*sp*ch };
+  return {forward,right,up};
+}
+// Heading-only "flat" reference frame: ignores pitch/bank entirely, so a
+// camera built on this frame stays put (relative to heading + world-up)
+// even while the target rolls or pitches.
+function basisFlatFromHeading(H){
+  const sh=Math.sin(H), ch=Math.cos(H);
+  return {
+    forward: {x:-sh, y:0, z:ch},
+    right:   {x: ch, y:0, z:sh},
+    up:      {x:0,   y:1, z:0}
+  };
+}
+function addv(a,b){return {x:a.x+b.x,y:a.y+b.y,z:a.z+b.z};}
+function subv(a,b){return {x:a.x-b.x,y:a.y-b.y,z:a.z-b.z};}
+function scalev(a,s){return {x:a.x*s,y:a.y*s,z:a.z*s};}
+function lenv(a){return Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z);}
+function normv(a){const l=lenv(a)||1e-9; return {x:a.x/l,y:a.y/l,z:a.z/l};}
+function crossv(a,b){ return { x:a.y*b.z-a.z*b.y, y:a.z*b.x-a.x*b.z, z:a.x*b.y-a.y*b.x }; }
+
+// Given a normalized direction vector, recover (Heading, Pitch) so that
+// basisFromHPB(H,P,0).forward === dir.  Bank is not determined by direction.
+function lookAtHP(dir){
+  const d = normv(dir);
+  const P = Math.asin(clamp(d.y,-1,1));
+  const cp = Math.cos(P);
+  let H;
+  if (Math.abs(cp) < 1e-6){ H = 0; }
+  else { H = Math.atan2(-d.x/cp, d.z/cp); }
+  return {H,P};
+}
+
+// Full "look-at with reference up" solve: aim forward at (toPos-fromPos),
+// and choose the roll (bank) so the camera's own "up" is as close as
+// possible to upRef (rigid-camera / gimbal-free look-at, matching the
+// classic lookAt(eye,target,up) construction used in 3D graphics). This is
+// what makes a "rigidly attached" camera keep framing the SAME side of a
+// subject as the subject rolls: pass the subject's own up vector as upRef
+// and the subject will appear to stay upright in frame (the world/horizon
+// appears to rotate instead) -- exactly like a selfie stick held at arm's
+// length. Passing world-up (0,1,0) instead gives an ordinary
+// horizon-stabilised look-at (camera stays level no matter what the
+// subject does).
+// Extract (H,P,B) from an orthonormal (right,up,forward) basis -- inverse of
+// basisFromHPB. Handles the near-vertical (gimbal) case explicitly.
+function basisToHPB(forward,right,up){
+  const P = Math.asin(clamp(forward.y,-1,1));
+  const cp = Math.cos(P);
+  let H, B;
+  if (Math.abs(cp) > 1e-6){
+    H = Math.atan2(-forward.x/cp, forward.z/cp);
+    const sinB = -right.y/cp;
+    const cosB = up.y/cp;
+    B = Math.atan2(sinB, cosB);
+  } else {
+    H = 0;
+    if (forward.y > 0) B = Math.atan2(right.z, right.x);
+    else B = Math.atan2(-right.z, right.x);
+  }
+  return {H,P,B};
+}
+
+function lookAtWithUp(fromPos, toPos, upRef){
+  const f = normv(subv(toPos, fromPos));
+  let right = crossv(upRef, f);
+  if (lenv(right) < 1e-6){
+    right = crossv({x:0,y:1,z:0}, f);
+    if (lenv(right) < 1e-6) right = {x:1,y:0,z:0};
+  }
+  right = normv(right);
+  const up = crossv(f, right); // already unit length: f, right orthonormal
+  return basisToHPB(f, right, up);
+}
+
+/* -------------------------------------------------------------------------
+   1b. Quaternions -- used only to SMOOTH orientation (inertial blending)
+   without the "flip" glitches that plague independent per-axis blending of
+   Euler angles (H,P,B) near the pitch=90 deg pole: two nearly-identical
+   physical orientations can have wildly different H/B values there (a
+   representational discontinuity, not a physical one), which breaks naive
+   component-wise easing. Quaternion SLERP blends the actual rotation, so it
+   stays smooth through that pole. H,P,B are only the *input/output* format
+   (because that's what YSFLIGHT's file format stores); all inertial
+   smoothing happens in quaternion space.
+   ------------------------------------------------------------------------- */
+function hpbToQuat(H,P,B){
+  const {forward,right,up} = basisFromHPB(H,P,B);
+  const m00=right.x, m10=right.y, m20=right.z;
+  const m01=up.x,    m11=up.y,    m21=up.z;
+  const m02=forward.x,m12=forward.y,m22=forward.z;
+  const trace = m00+m11+m22;
+  let x,y,z,w;
+  if (trace > 0){
+    const s = Math.sqrt(trace+1)*2;
+    w = 0.25*s; x=(m21-m12)/s; y=(m02-m20)/s; z=(m10-m01)/s;
+  } else if (m00>m11 && m00>m22){
+    const s = Math.sqrt(1+m00-m11-m22)*2;
+    w=(m21-m12)/s; x=0.25*s; y=(m01+m10)/s; z=(m02+m20)/s;
+  } else if (m11>m22){
+    const s = Math.sqrt(1+m11-m00-m22)*2;
+    w=(m02-m20)/s; x=(m01+m10)/s; y=0.25*s; z=(m12+m21)/s;
+  } else {
+    const s = Math.sqrt(1+m22-m00-m11)*2;
+    w=(m10-m01)/s; x=(m02+m20)/s; y=(m12+m21)/s; z=0.25*s;
+  }
+  return {x,y,z,w};
+}
+function quatToBasis(q){
+  const {x,y,z,w}=q;
+  const xx=x*x,yy=y*y,zz=z*z,xy=x*y,xz=x*z,yz=y*z,wx=w*x,wy=w*y,wz=w*z;
+  return {
+    right:   {x:1-2*(yy+zz), y:2*(xy+wz),   z:2*(xz-wy)},
+    up:      {x:2*(xy-wz),   y:1-2*(xx+zz), z:2*(yz+wx)},
+    forward: {x:2*(xz+wy),   y:2*(yz-wx),   z:1-2*(xx+yy)}
+  };
+}
+function quatToHPB(q){
+  const {forward,right,up} = quatToBasis(q);
+  return basisToHPB(forward,right,up);
+}
+function quatSlerp(a,b,t){
+  let dot = a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w;
+  let bx=b.x,by=b.y,bz=b.z,bw=b.w;
+  if (dot<0){ dot=-dot; bx=-bx; by=-by; bz=-bz; bw=-bw; } // shortest-path (double-cover fix)
+  if (dot > 0.9995){
+    const rx=a.x+(bx-a.x)*t, ry=a.y+(by-a.y)*t, rz=a.z+(bz-a.z)*t, rw=a.w+(bw-a.w)*t;
+    const l = Math.sqrt(rx*rx+ry*ry+rz*rz+rw*rw)||1;
+    return {x:rx/l,y:ry/l,z:rz/l,w:rw/l};
+  }
+  const theta0 = Math.acos(clamp(dot,-1,1));
+  const theta = theta0*t;
+  const sinTheta0 = Math.sin(theta0), sinTheta = Math.sin(theta);
+  const s0 = Math.cos(theta) - dot*sinTheta/sinTheta0;
+  const s1 = sinTheta/sinTheta0;
+  return { x:s0*a.x+s1*bx, y:s0*a.y+s1*by, z:s0*a.z+s1*bz, w:s0*a.w+s1*bw };
+}
+// Hamilton product: composes "world = base * local", i.e. applies `local`
+// as a rotation expressed in `base`'s own (already-rotated) local frame.
+// Used to layer the small handheld-shake wobble ON TOP OF an always-exact
+// aim, instead of blending/lagging the aim itself.
+function quatMultiply(a,b){
+  return {
+    w: a.w*b.w - a.x*b.x - a.y*b.y - a.z*b.z,
+    x: a.w*b.x + a.x*b.w + a.y*b.z - a.z*b.y,
+    y: a.w*b.y - a.x*b.z + a.y*b.w + a.z*b.x,
+    z: a.w*b.z + a.x*b.y - a.y*b.x + a.z*b.w
+  };
+}
+
+/* -------------------------------------------------------------------------
+   2. "Handheld" camera noise.
+   Sum of a handful of sine waves at unrelated frequencies/phases (a light
+   fractal/Perlin-style noise). Unlike a randomly-retargeted spring, this is
+   smooth (infinitely differentiable) by construction -- no retarget timers,
+   no clamping, so there is nothing that can "hold and snap". A slow phase
+   wobble (the inner sin) keeps it from ever feeling metronomic/looping.
+   Roughly bounded to [-1,1] (coefficients sum to 1.0).
+   ------------------------------------------------------------------------- */
+function handheldNoise(t, phase){
+  const tt = t + 0.35*Math.sin(t*0.4 + phase);
+  return 0.35*Math.sin(tt*1.2 + phase)
+       + 0.28*Math.sin(tt*2.8 + phase*1.7)
+       + 0.20*Math.sin(tt*5.7 + phase*3.1)
+       + 0.12*Math.sin(tt*9.3 + phase*0.9)
+       + 0.05*Math.sin(tt*14.1 + phase*2.3);
+}
+// Exponentially ease an angle toward a desired value (shortest arc) -- gives
+// the shake a touch of "camera operator" lag/inertia on top of the noise.
+function blendAngle(current, desired, amount){
+  return current + wrapPi(desired-current)*amount;
+}
+
+/* -------------------------------------------------------------------------
+   3. YFS parsing
+   ------------------------------------------------------------------------- */
+function parseYFS(text){
+  const eol = text.indexOf('\r\n') !== -1 ? '\r\n' : '\n';
+  const lines = text.split(/\r\n|\n/);
+
+  const airplanes = [];
+  let insertIndex = lines.length;
+  let maxId = 10;
+
+  const idRe = /IDANDTAG\s+(\d+)/;
+
+  let i = 0;
+  while (i < lines.length){
+    const line = lines[i];
+    if (/^AIRPLANE\s/.test(line)){
+      const toks = line.trim().split(/\s+/);
+      const name = toks[1];
+      const flag = toks[2] || 'FALSE';
+      const startLine = i;
+      let j = i+1;
+      // scan header lines until NUMRECOR
+      while (j < lines.length && !/^NUMRECOR\s/.test(lines[j])) {
+        const m = idRe.exec(lines[j]);
+        if (m) maxId = Math.max(maxId, parseInt(m[1],10));
+        j++;
+      }
+      if (j >= lines.length) break; // malformed, bail
+      const numTok = lines[j].trim().split(/\s+/);
+      const count = parseInt(numTok[1],10);
+      const perRec = parseInt(numTok[2],10);
+      const recordStart = j+1;
+      const recordLineCount = count*perRec;
+      const recordEnd = recordStart + recordLineCount; // exclusive
+
+      const times = new Array(count);
+      const pos = new Array(count); // {x,y,z,h,p,b,extra}
+      for (let r=0; r<count; r++){
+        const base = recordStart + r*perRec;
+        const t = parseFloat(lines[base]);
+        const pparts = lines[base+1].trim().split(/\s+/).map(Number);
+        times[r] = t;
+        pos[r] = {x:pparts[0],y:pparts[1],z:pparts[2],h:pparts[3],p:pparts[4],b:pparts[5],extra:pparts[6]};
+      }
+      airplanes.push({
+        index: airplanes.length,
+        name, flag,
+        headerStart:startLine, headerEnd:j, // header lines [startLine..j] inclusive (AIRPLANE..NUMRECOR)
+        recordStart, recordEnd, perRec, count,
+        times, pos,
+        label: (airplanes.length+1)+': '+name
+      });
+      i = recordEnd;
+      continue;
+    }
+    i++;
+  }
+
+  // find insertion point: first GROUNDOB / BULRECOR / EXPRECOR / WEATHERX after the last airplane
+  const searchFrom = airplanes.length ? airplanes[airplanes.length-1].recordEnd : 0;
+  for (let k=searchFrom; k<lines.length; k++){
+    if (/^GROUNDOB\s|^BULRECOR\b|^EXPRECOR\b|^WEATHERX\b/.test(lines[k])){
+      insertIndex = k; break;
+    }
+  }
+  if (insertIndex === lines.length){
+    // fall back: right after last airplane block, or EOF
+    insertIndex = searchFrom;
+  }
+
+  // also scan the WHOLE file for IDANDTAG to be safe (ground objects etc. numbered too)
+  for (let k=0;k<lines.length;k++){
+    const m = idRe.exec(lines[k]);
+    if (m) maxId = Math.max(maxId, parseInt(m[1],10));
+  }
+
+  return {eol, lines, airplanes, insertIndex, maxId};
+}
+
+// Sample a track (times[], pos[]) at arbitrary time t via linear interpolation
+// (angles interpolated along the shortest arc). Clamped to the track's ends.
+function sampleTrack(times, pos, t){
+  const n = times.length;
+  if (n === 0) return null;
+  if (t <= times[0]) return pos[0];
+  if (t >= times[n-1]) return pos[n-1];
+  // binary search
+  let lo=0, hi=n-1;
+  while (hi-lo>1){
+    const mid=(lo+hi)>>1;
+    if (times[mid] <= t) lo=mid; else hi=mid;
+  }
+  const t0=times[lo], t1=times[hi];
+  const f = (t1>t0) ? (t-t0)/(t1-t0) : 0;
+  const p0=pos[lo], p1=pos[hi];
+  return {
+    x:lerp(p0.x,p1.x,f), y:lerp(p0.y,p1.y,f), z:lerp(p0.z,p1.z,f),
+    h:lerpAngle(p0.h,p1.h,f), p:lerp(p0.p,p1.p,f), b:lerp(p0.b,p1.b,f)
+  };
+}
+
+/* -------------------------------------------------------------------------
+   4. Camera track generation
+   ------------------------------------------------------------------------- */
+// Smooth 0..1..0 wave with CONSTANT ACCELERATION segments (piecewise quadratic
+// "ease in / ease out"), as opposed to a linear triangle wave which has an
+// instantaneous velocity reversal (and therefore looks like a jump-cut) at
+// each turnaround. x is phase in [0,1) for one full period.
+function easeInOutQuad(x){
+  return x<0.5 ? 2*x*x : 1-Math.pow(-2*x+2,2)/2;
+}
+// Maps phase (any real, period 1) to a smooth -1..1..-1 back-and-forth value
+// with zero velocity at the extremes (+-1) and maximum speed at the centre.
+function smoothBounce(phase){
+  const f = phase - Math.floor(phase); // 0..1
+  const tri = f<0.5 ? f*2 : 2-f*2;      // 0..1..0 linear triangle
+  const eased = easeInOutQuad(tri);     // 0..1..0 eased
+  return eased*2-1;                     // -1..1..-1
+}
+
+// Build a dense, evenly-spaced time axis spanning the target's own recorded
+// time range. This decouples camera smoothness from how sparsely YSFLIGHT
+// happened to record the target (which can jump many seconds between
+// keyframes during straight/level flight), which is what caused the visible
+// "kaku-kaku" stepping in shake and orbit motion.
+function buildDenseTimes(times, hz){
+  const t0 = times[0], t1 = times[times.length-1];
+  const dt = 1/Math.max(1,hz);
+  const n = Math.max(2, Math.ceil((t1-t0)/dt)+1);
+  const out = new Array(n);
+  for (let i=0;i<n;i++) out[i] = Math.min(t1, t0+i*dt);
+  if (out[out.length-1] < t1) out.push(t1);
+  return out;
+}
+
+// Choose the reference frame used to position Fixed/Pass cameras: full body
+// attitude (follows roll & pitch, like a boom rigidly attached to the
+// aircraft) or heading-only "flat" (stays level regardless of roll/pitch).
+function referenceBasis(tp, followAttitude){
+  return followAttitude ? basisFromHPB(tp.h, tp.p, tp.b) : basisFlatFromHeading(tp.h);
+}
+
+function computeCameraTrack(target, mode, params, mountTrack){
+  const times = buildDenseTimes(target.times, params.sample_hz||15);
+  const n = times.length;
+  const out = new Array(n);
+
+  // per-axis noise phases, randomized per-generation but otherwise fixed
+  // (mirrors the reference implementation's lateral/depth/vertical/yaw/pitch/roll phases)
+  const rngPhase = mulberry32(params.seed>>>0);
+  const ph = {
+    lateral: rngPhase()*20, depth: rngPhase()*20, vertical: rngPhase()*20,
+    yaw: rngPhase()*20, pitch: rngPhase()*20, roll: rngPhase()*20
+  };
+
+  let orbitTheta = rndRange(0, Math.PI*2);
+  let vwanderPhase = rndRange(0, Math.PI*2);
+  let prevT = times[0];
+  let prevBaseCam = null, prevTgt = null;
+  let inertShakeQuat = null;
+
+  for (let idx=0; idx<n; idx++){
+    const t = times[idx];
+    const dt = clamp(t - prevT, 0, 0.5);
+    prevT = t;
+    const tp = sampleTrack(target.times, target.pos, t);
+    const targetPos = {x:tp.x,y:tp.y,z:tp.z};
+
+    let camPos, aimPos = targetPos, upRef = {x:0,y:1,z:0};
+
+    if (mode === 'rotation'){
+      if (params.rot_style === 'orbit'){
+        // Orbit plane is expressed in the target's own (right,up,forward)
+        // frame, so "follow attitude" ON (default) makes the whole orbit
+        // -- and the camera's own roll -- ride along with the target's
+        // roll/pitch, like a ring rigidly attached to it. OFF uses the
+        // heading-only flat frame instead (stays level).
+        const followOrbit = params.rot_orbit_follow_attitude !== false;
+        const {forward:tf, right:tr, up:tu} = referenceBasis(tp, followOrbit);
+        const dist = params.rot_distance;
+        const heightOff = params.rot_height;
+        const dirSign = params.rot_orbit_dir === 'ccw' ? -1 : 1;
+        orbitTheta += dirSign*(params.rot_speed*D2R) * dt;
+        vwanderPhase += dt * 0.15;
+        const wanderDeg = params.rot_vwander * Math.sin(vwanderPhase*2*Math.PI/6.0);
+        const elevRad = clamp((heightOff/Math.max(dist,1)) + wanderDeg*D2R, -1.4, 1.4);
+        const horiz = dist*Math.cos(elevRad);
+        const vert = dist*Math.sin(elevRad);
+        camPos = addv(addv(addv(targetPos, scalev(tr, horiz*Math.sin(orbitTheta))), scalev(tu, vert)), scalev(tf, horiz*Math.cos(orbitTheta)));
+        if (followOrbit) upRef = tu;
+      } else {
+        // PASS: a straight "rail" parallel to the target's flight path,
+        // offset by (offX,offY,offZ) in the target's own frame at the
+        // closest-approach point, with the camera sliding +-passMax along
+        // that rail using an eased (constant-acceleration) back-and-forth.
+        // "Follow attitude" OFF (default): the rail's frame ignores the
+        // target's roll/pitch (stays level). ON: the rail rides the target's
+        // full body attitude (position AND the camera's own roll), so it
+        // swings around and rolls together with the target -- a rigid
+        // "selfie stick" attached to the aircraft, always framing the same
+        // side of it.
+        const followPass = !!params.rot_pass_follow_attitude;
+        const {forward:tf, right:tr, up:tu} = referenceBasis(tp, followPass);
+        const period = Math.max(0.5, params.rot_passper);
+        const along = smoothBounce(t/period) * params.rot_passmax;
+        const railBase = addv(addv(addv(targetPos, scalev(tr, params.rot_offx)), scalev(tu, params.rot_offy)), scalev(tf, params.rot_offz));
+        camPos = addv(railBase, scalev(tf, along));
+        if (followPass) upRef = tu;
+      }
+    } else if (mode === 'fixed'){
+      // "Follow attitude" ON (default): position AND the camera's own roll
+      // are locked to the target's FULL attitude (heading+pitch+bank) --
+      // like a selfie stick held rigidly at arm's length: as the aircraft
+      // rolls or pitches, the whole rig (position + roll) moves with it, so
+      // the camera keeps framing the same side of the aircraft -- the
+      // subject stays upright in frame and the world/horizon appears to
+      // rotate instead, exactly like a rigidly-attached camera physically
+      // would behave. OFF: heading-only "flat" frame and a level, horizon-
+      // stabilised roll, so target pitch/bank never perturbs the shot.
+      const followFixed = params.fix_follow_attitude !== false;
+      const {forward:ff, right:fr, up:fu} = referenceBasis(tp, followFixed);
+      const dist = params.fix_distance;
+      const az = params.fix_azimuth*D2R;
+      const el = params.fix_elev*D2R;
+      const dirLocal = {
+        x: Math.sin(az)*Math.cos(el),
+        y: Math.sin(el),
+        z: Math.cos(az)*Math.cos(el)
+      };
+      const driftPhase = t*0.25 + params.seed*0.001;
+      const driftAz = params.fix_drift*D2R*Math.sin(driftPhase);
+      const driftEl = params.fix_drift*D2R*Math.sin(driftPhase*1.3+1.7);
+      const dirWorld = addv(addv(scalev(fr, dirLocal.x), scalev(fu, dirLocal.y)), scalev(ff, dirLocal.z));
+      const rotatedDir = normv(addv(dirWorld, addv(scalev(fr, Math.sin(driftAz)), scalev(fu, Math.sin(driftEl)))));
+      camPos = addv(targetPos, scalev(rotatedDir, dist));
+      if (followFixed) upRef = fu;
+    } else if (mode === 'aircraft'){
+      const mp = sampleTrack(mountTrack.times, mountTrack.pos, t);
+      const {forward:mf, right:mr, up:mu} = basisFromHPB(mp.h, mp.p, mp.b);
+      const az = params.air_azimuth*D2R, el = params.air_elev*D2R, dist = params.air_distance;
+      const local = { x: Math.sin(az)*Math.cos(el)*dist, y: Math.sin(el)*dist, z: Math.cos(az)*Math.cos(el)*dist };
+      camPos = addv({x:mp.x,y:mp.y,z:mp.z}, addv(addv(scalev(mr, local.x), scalev(mu, local.y)), scalev(mf, local.z)));
+      upRef = mu; // rigidly mounted: rolls together with the carrying aircraft
+    }
+
+    // --- relative-speed-adaptive shake intensity, from the BASE (pre-shake)
+    // trajectory, exactly as in the reference implementation: faster closure
+    // between camera and target -> stronger, tighter-tracking shake; slow
+    // cruise -> gentler, more loosely-tracking shake. ---
+    let relSpeed = 0;
+    if (prevBaseCam && prevTgt && dt > 0){
+      const camV = scalev(subv(camPos, prevBaseCam), 1/dt);
+      const tgtV = scalev(subv(targetPos, prevTgt), 1/dt);
+      relSpeed = lenv(subv(camV, tgtV));
+    }
+    prevBaseCam = camPos; prevTgt = targetPos;
+    const mFactor = clamp(relSpeed/100, 0, 1);
+    const shakeScale = 0.5 + 0.5*mFactor;
+    const trackingTau = 0.8 - 0.7*mFactor;
+
+    // positional shake: decomposed into lateral/vertical/depth relative to
+    // the (unshaken) camera-to-target aim direction, not a raw XYZ jiggle --
+    // this is what keeps it reading as camera-operator motion rather than
+    // the whole rig teleporting around.
+    const {H:baseH} = lookAtHP(subv(aimPos, camPos));
+    const rightX = Math.cos(baseH), rightZ = Math.sin(baseH);
+    const fwdX = -Math.sin(baseH), fwdZ = Math.cos(baseH);
+    const lateral = params.sh_dist*shakeScale*handheldNoise(t, ph.lateral);
+    const depth   = params.sh_dist*shakeScale*0.35*handheldNoise(t, ph.depth);
+    const vertical= params.sh_dist*shakeScale*0.45*handheldNoise(t, ph.vertical);
+    camPos = {
+      x: camPos.x + rightX*lateral + fwdX*depth,
+      y: camPos.y + vertical,
+      z: camPos.z + rightZ*lateral + fwdZ*depth
+    };
+
+    // orientation: the BASE aim (look exactly at the target, with the
+    // chosen up-reference for rigid roll tracking) is recomputed exactly
+    // every frame -- it never lags, so the target can never drift out of
+    // frame during a hard maneuver no matter how fast it moves. The
+    // handheld shake wobble is a small extra rotation layered ON TOP of
+    // that exact aim (in the camera's own local space), and ONLY the
+    // wobble gets inertial smoothing (via quaternion SLERP, which stays
+    // smooth through the straight-up/down pole where independent H/B
+    // blending would flip/snap).
+    const {H,P,B} = lookAtWithUp(camPos, aimPos, upRef);
+    const baseQuat = hpbToQuat(H,P,B);
+    const desiredShakeQuat = hpbToQuat(
+      params.sh_yaw*D2R*shakeScale*handheldNoise(t, ph.yaw),
+      params.sh_pitch*D2R*shakeScale*handheldNoise(t, ph.pitch),
+      params.sh_roll*D2R*shakeScale*handheldNoise(t, ph.roll)
+    );
+
+    if (inertShakeQuat === null){
+      inertShakeQuat = desiredShakeQuat;
+    } else {
+      const trackAmt = 1 - Math.exp(-dt/Math.max(0.01,trackingTau));
+      inertShakeQuat = quatSlerp(inertShakeQuat, desiredShakeQuat, trackAmt);
+    }
+    const finalQuat = quatMultiply(baseQuat, inertShakeQuat);
+    const hpb = quatToHPB(finalQuat);
+
+    out[idx] = {x:camPos.x, y:camPos.y, z:camPos.z, h:hpb.H, p:clamp(hpb.P,-1.55,1.55), b:hpb.B};
+  }
+  unwrapHeadingBank(out);
+  return {times, track:out};
+}
+
+// Post-pass: near pitch=+-90deg, (H,P,B) and (H+-pi,P,B+-pi) represent the
+// SAME physical orientation (a representational ambiguity of Euler angles,
+// not a real change) -- see basisToHPB. The quaternion SLERP above already
+// keeps the actual rotation smooth frame-to-frame, but the raw stored H/B
+// *numbers* can still jump by ~pi at that crossing. Re-express every frame
+// after such a jump using the equivalent (H+-pi, B+-pi) branch so the
+// stored numbers themselves stay continuous too (harmless either way for
+// the rotation itself, but avoids relying on YSFLIGHT's own between-record
+// interpolation to already know about this ambiguity).
+function unwrapHeadingBank(track){
+  let flip = false;
+  for (let i=1;i<track.length;i++){
+    const prev = track[i-1], cur = track[i];
+    const dH = Math.abs(wrapPi(cur.h - prev.h));
+    const dB = Math.abs(wrapPi(cur.b - prev.b));
+    if (dH > 2.5 && dB > 2.5) flip = !flip;
+    if (flip){
+      cur.h = wrapPi(cur.h + Math.PI);
+      cur.b = wrapPi(cur.b + Math.PI);
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------
+   5. Build the new AIRPLANE block text & assemble output file
+   ------------------------------------------------------------------------- */
+const CTRL_LINE = '6 0 0 255 0 0 0 0 240 8 0 0 0 0 0 0 0 0';
+
+function fmtNum(v){
+  if (!isFinite(v)) v = 0;
+  let s = v.toFixed(4);
+  s = s.replace(/0+$/,'').replace(/\.$/,'');
+  if (s === '' || s === '-') s = '0';
+  return s;
+}
+
+function buildAirplaneBlock(identifyName, startPosLine, newId, track, times, eol){
+  const L = [];
+  L.push('AIRPLANE '+identifyName+' FALSE');
+  L.push(startPosLine || 'STARTPOS NA CAMERA');
+  L.push('IDENTIFY 0');
+  L.push('IDANDTAG '+newId+' ""');
+  L.push('AIRPCMND UNLOADWP');
+  L.push('AIRPCMND INITFUEL 75%');
+  L.push('INTENTIO');
+  L.push('GOTOPOSI '+fmtNum(track[0].x)+' '+fmtNum(track[0].y)+' '+fmtNum(track[0].z));
+  L.push('STATE NORMAL');
+  L.push('AIRSPEED 0.000000m/s');
+  L.push('THROTTLE 0.000000');
+  L.push('AFTERBURNER FALSE');
+  L.push('MINIALTI 0');
+  L.push('ENDINTEN');
+  L.push('NUMRECOR '+track.length+' 4');
+  for (let i=0;i<track.length;i++){
+    const p = track[i];
+    L.push(i===0 ? '0' : fmtNum(times[i]));
+    L.push([fmtNum(p.x),fmtNum(p.y),fmtNum(p.z),fmtNum(p.h),fmtNum(p.p),fmtNum(p.b),'0.0'].join(' '));
+    L.push(CTRL_LINE);
+    L.push('0');
+  }
+  return L.join(eol);
+}
+
+function replaceAirplaneIdentify(lines, headerStart, newName){
+  const line = lines[headerStart];
+  const toks = line.split(/\s+/);
+  toks[1] = newName;
+  lines[headerStart] = toks.join(' ');
+}
+
+function assembleOutput(parsed, newBlockText, transparentEdit){
+  const lines = parsed.lines.slice();
+  if (transparentEdit){
+    replaceAirplaneIdentify(lines, transparentEdit.headerStart, transparentEdit.newName);
+  }
+  const before = lines.slice(0, parsed.insertIndex).join(parsed.eol);
+  const after = lines.slice(parsed.insertIndex).join(parsed.eol);
+  let out = before;
+  if (before.length && !before.endsWith(parsed.eol)) out += parsed.eol;
+  out += newBlockText + parsed.eol;
+  out += after;
+  return out;
+}
+
+function dateSuffix(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes());
+}
+
+/* =========================================================================
+   6. UI wiring
+   ========================================================================= */
+let PARSED = null;
+let TARGET_IDX = -1;
+
+function $(id){return document.getElementById(id);}
+
+function bindSliderNumber(sId,nId, def, onChange){
+  const s = $(sId), n = $(nId);
+  s.value = def; n.value = def;
+  // The number input's TRUE value is only floored at its min (e.g. distances
+  // can't go negative) -- it is deliberately NOT capped at n.max. The slider
+  // has a fixed visual range and the pads use a fixed reference scale, but
+  // typing a larger number should be honoured as-is, both in the UI and in
+  // the generated .yfs. Only the slider's own on-screen position is clamped
+  // to its min/max (a physical slider can't be dragged past its ends).
+  function set(v){
+    if (v === '' || isNaN(v)) return;
+    const minN = n.min!=='' ? parseFloat(n.min) : -Infinity;
+    if (v < minN) v = minN;
+    n.value = Math.round(v*100)/100;
+    s.value = clamp(v, parseFloat(s.min), parseFloat(s.max));
+    if (onChange) onChange(parseFloat(n.value));
+  }
+  s.addEventListener('input', ()=>set(parseFloat(s.value)));
+  n.addEventListener('input', ()=>{ if(n.value!=='' && !isNaN(parseFloat(n.value))) set(parseFloat(n.value)); });
+  set(def);
+  return {get:()=>parseFloat(n.value), set, reset:()=>set(def), def};
+}
+
+// ---- pill groups ----
+function wirePills(containerId, dataAttr, onSelect, selector){
+  const el = $(containerId);
+  const pills = el.querySelectorAll(selector || '.pill');
+  pills.forEach(p=>{
+    p.addEventListener('click', ()=>{
+      pills.forEach(q=>q.classList.remove('active'));
+      p.classList.add('active');
+      onSelect(p.getAttribute(dataAttr));
+    });
+  });
+}
+
+// Builds a simple "camera" glyph matching the classic camcorder pictogram:
+// a rounded rectangular body with a triangular lens attached to its right
+// edge, base against the body, apex pointing further right. This is the
+// shape's local "forward" (lens) direction -- i.e. local +X (right) is
+// where the lens looks. Returns an unattached <g>; caller appends it and
+// positions/rotates it via a transform. (Used everywhere except Pass mode,
+// which uses a plain dot for its reference point instead.)
+function buildCameraGlyph(NS, color){
+  const g = document.createElementNS(NS,'g');
+  const body = document.createElementNS(NS,'rect');
+  body.setAttribute('x','-13'); body.setAttribute('y','-7'); body.setAttribute('width','18'); body.setAttribute('height','14');
+  body.setAttribute('rx','3'); body.setAttribute('fill',color);
+  const lens = document.createElementNS(NS,'polygon');
+  lens.setAttribute('points','5,-3 13,-8 13,8 5,3');
+  lens.setAttribute('fill',color);
+  g.appendChild(body); g.appendChild(lens);
+  return g;
+}
+// Rotation (deg) to apply to a buildCameraGlyph() group, positioned at `p`,
+// so its lens (local +X / "right") points at `center`.
+function angleLensToward(p, center){
+  return Math.atan2(center.y-p.y, center.x-p.x)*R2D;
+}
+// "Relative" auto-scaling: rounds up to a nice 1/2/5x10^n number so the
+// current value always sits at a sensible, consistent fraction of a pad's
+// radius, regardless of what absolute units/magnitude that particular
+// value happens to use (keeps all the SET CAMERA pads visually consistent
+// with each other rather than some being cramped near the centre and
+// others maxed out at the rim).
+function niceMax(v){
+  const target = Math.max(Math.abs(v), 1) * 1.6;
+  const mag = Math.pow(10, Math.floor(Math.log10(target)));
+  const norm = target/mag;
+  let base;
+  if (norm<=1) base=1; else if (norm<=2) base=2; else if (norm<=5) base=5; else base=10;
+  return base*mag;
+}
+
+// ---- generic polar drag pad (azimuth = angle, distance = radius) ----
+// Used for both Fixed mode (position relative to the target) and Aircraft
+// mode (local position on the mount aircraft) so both share one consistent
+// interaction. The handle is drawn as a simple camera glyph (body + lens)
+// rather than a plain dot, so it reads unambiguously as "the camera".
+function initPolarPad(svgId, distCtl, azCtl, maxDist, syncKey, captionUp){
+  const svg = $(svgId);
+  const NS = 'http://www.w3.org/2000/svg';
+  const cx=110, cy=110, padR=90;
+
+  const ring = document.createElementNS(NS,'circle');
+  ring.setAttribute('cx',cx); ring.setAttribute('cy',cy); ring.setAttribute('r',padR);
+  ring.setAttribute('fill','none'); ring.setAttribute('stroke','#233042'); ring.setAttribute('stroke-width','1');
+  svg.appendChild(ring);
+  [0.33,0.66].forEach(f=>{
+    const c = document.createElementNS(NS,'circle');
+    c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r',padR*f);
+    c.setAttribute('fill','none'); c.setAttribute('stroke','#1b2634'); c.setAttribute('stroke-width','1');
+    svg.appendChild(c);
+  });
+  const crossV = document.createElementNS(NS,'line');
+  crossV.setAttribute('x1',cx); crossV.setAttribute('y1',cy-padR); crossV.setAttribute('x2',cx); crossV.setAttribute('y2',cy+padR);
+  crossV.setAttribute('stroke','#1b2634');
+  svg.appendChild(crossV);
+  const crossH = document.createElementNS(NS,'line');
+  crossH.setAttribute('x1',cx-padR); crossH.setAttribute('y1',cy); crossH.setAttribute('x2',cx+padR); crossH.setAttribute('y2',cy);
+  crossH.setAttribute('stroke','#1b2634');
+  svg.appendChild(crossH);
+
+  // subject glyph (small triangle pointing "up" = forward reference)
+  const glyph = document.createElementNS(NS,'polygon');
+  glyph.setAttribute('points', (cx)+','+(cy-10)+' '+(cx-7)+','+(cy+8)+' '+(cx+7)+','+(cy+8));
+  glyph.setAttribute('fill','#5fd0d6'); glyph.setAttribute('opacity','0.85');
+  svg.appendChild(glyph);
+
+  const line = document.createElementNS(NS,'line');
+  line.setAttribute('x1',cx); line.setAttribute('y1',cy);
+  line.setAttribute('stroke','#e8a33d'); line.setAttribute('stroke-width','1.5'); line.setAttribute('opacity','0.6');
+  svg.appendChild(line);
+
+  const handle = buildCameraGlyph(NS, '#e8a33d');
+  svg.appendChild(handle);
+
+  let dragging = false;
+
+  function azDistToXY(azDeg, dist, md){
+    const azRad = azDeg*D2R;
+    const r = clamp(dist/Math.max(1,md),0,1)*padR;
+    return { x: cx + r*Math.sin(azRad), y: cy - r*Math.cos(azRad) };
+  }
+  function xyToAzDist(px,py,md){
+    let dx = px-cx, dy = py-cy;
+    const r = clamp(Math.hypot(dx,dy),0,padR);
+    let az = Math.atan2(dx,-dy)*R2D;
+    if (az<0) az += 360;
+    const dist = (r/padR)*md;
+    return {az, dist};
+  }
+  function redraw(){
+    const md = typeof maxDist === 'function' ? maxDist() : maxDist;
+    const az = azCtl.get();
+    const dist = distCtl.get();
+    const p = azDistToXY(az, dist, md);
+    const angleToCenter = angleLensToward(p, {x:cx,y:cy});
+    handle.setAttribute('transform', 'translate('+p.x+','+p.y+') rotate('+angleToCenter+')');
+    line.setAttribute('x2',p.x); line.setAttribute('y2',p.y);
+  }
+  window[syncKey] = redraw;
+
+  function pointFromEvent(e){
+    const rect = svg.getBoundingClientRect();
+    const scaleX = 220/rect.width, scaleY = 220/rect.height;
+    return { x:(e.clientX-rect.left)*scaleX, y:(e.clientY-rect.top)*scaleY };
+  }
+  function onDown(e){ dragging = true; onMove(e); svg.setPointerCapture && svg.setPointerCapture(e.pointerId||0); }
+  function onMove(e){
+    if (!dragging) return;
+    const pt = pointFromEvent(e);
+    const md = typeof maxDist === 'function' ? maxDist() : maxDist;
+    const {az,dist} = xyToAzDist(pt.x, pt.y, md);
+    azCtl.set(Math.round(az));
+    distCtl.set(Math.round(dist*10)/10);
+    redraw();
+    e.preventDefault();
+  }
+  function onUp(){ dragging = false; }
+
+  svg.addEventListener('pointerdown', onDown);
+  svg.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  svg.addEventListener('touchstart', e=>{ onDown(e.touches[0]); }, {passive:false});
+  svg.addEventListener('touchmove', e=>{ onMove(e.touches[0]); e.preventDefault(); }, {passive:false});
+  window.addEventListener('touchend', onUp);
+
+  redraw();
+}
+
+// ---- aircraft-camera pad: mount aircraft fixed at centre (never moves);
+// the camera is draggable (azimuth/distance, as in initPolarPad) but always
+// aims its lens at a SEPARATE, freely-draggable "subject aircraft" marker
+// that exists purely for visualising the composition -- it has no bound
+// parameter of its own and never affects any numeric field. ----
+function initAircraftPad(svgId, distCtl, azCtl, maxDist, syncKey){
+  const svg = $(svgId);
+  const NS = 'http://www.w3.org/2000/svg';
+  const cx=110, cy=110, padR=90;
+
+  const ring = document.createElementNS(NS,'circle');
+  ring.setAttribute('cx',cx); ring.setAttribute('cy',cy); ring.setAttribute('r',padR);
+  ring.setAttribute('fill','none'); ring.setAttribute('stroke','#233042'); ring.setAttribute('stroke-width','1');
+  svg.appendChild(ring);
+  [0.33,0.66].forEach(f=>{
+    const c = document.createElementNS(NS,'circle');
+    c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r',padR*f);
+    c.setAttribute('fill','none'); c.setAttribute('stroke','#1b2634'); c.setAttribute('stroke-width','1');
+    svg.appendChild(c);
+  });
+  const crossV = document.createElementNS(NS,'line');
+  crossV.setAttribute('x1',cx); crossV.setAttribute('y1',cy-padR); crossV.setAttribute('x2',cx); crossV.setAttribute('y2',cy+padR);
+  crossV.setAttribute('stroke','#1b2634');
+  svg.appendChild(crossV);
+  const crossH = document.createElementNS(NS,'line');
+  crossH.setAttribute('x1',cx-padR); crossH.setAttribute('y1',cy); crossH.setAttribute('x2',cx+padR); crossH.setAttribute('y2',cy);
+  crossH.setAttribute('stroke','#1b2634');
+  svg.appendChild(crossH);
+
+  // mount aircraft ("カメラ担当機") -- fixed at centre, never moves
+  const mountGlyph = document.createElementNS(NS,'polygon');
+  mountGlyph.setAttribute('points', (cx)+','+(cy-10)+' '+(cx-7)+','+(cy+8)+' '+(cx+7)+','+(cy+8));
+  mountGlyph.setAttribute('fill','#d97706'); mountGlyph.setAttribute('opacity','0.85');
+  svg.appendChild(mountGlyph);
+
+  // camera <-> subject line (drawn under both icons)
+  const line = document.createElementNS(NS,'line');
+  line.setAttribute('stroke','#e8a33d'); line.setAttribute('stroke-width','1.5'); line.setAttribute('opacity','0.6');
+  svg.appendChild(line);
+
+  // subject aircraft ("撮影対象機") -- a composition aid only: freely
+  // draggable, own local state, never bound to any parameter.
+  let targetPos = { x: cx, y: cy-44 };
+  const targetGroup = document.createElementNS(NS,'g');
+  const targetHit = document.createElementNS(NS,'circle');
+  targetHit.setAttribute('r','13'); targetHit.setAttribute('fill','transparent');
+  targetHit.style.cursor = 'grab';
+  const targetGlyph = document.createElementNS(NS,'polygon');
+  targetGlyph.setAttribute('points','0,-10 -7,8 7,8');
+  targetGlyph.setAttribute('fill','#5fd0d6'); targetGlyph.setAttribute('opacity','0.9');
+  targetGroup.appendChild(targetHit); targetGroup.appendChild(targetGlyph);
+  svg.appendChild(targetGroup);
+
+  // camera handle (existing azimuth/distance driven position, relative to
+  // the mount aircraft at centre -- unaffected by the subject marker)
+  const camHit = document.createElementNS(NS,'circle');
+  camHit.setAttribute('r','15'); camHit.setAttribute('fill','transparent');
+  camHit.style.cursor = 'grab';
+  const handle = buildCameraGlyph(NS, '#e8a33d');
+  const handleGroup = document.createElementNS(NS,'g');
+  handleGroup.appendChild(camHit); handleGroup.appendChild(handle);
+  svg.appendChild(handleGroup);
+
+  let draggingCam = false, draggingTarget = false;
+
+  function azDistToXY(azDeg, dist, md){
+    const azRad = azDeg*D2R;
+    const r = clamp(dist/Math.max(1,md),0,1)*padR;
+    return { x: cx + r*Math.sin(azRad), y: cy - r*Math.cos(azRad) };
+  }
+  function xyToAzDist(px,py,md){
+    let dx = px-cx, dy = py-cy;
+    const r = clamp(Math.hypot(dx,dy),0,padR);
+    let az = Math.atan2(dx,-dy)*R2D;
+    if (az<0) az += 360;
+    const dist = (r/padR)*md;
+    return {az, dist};
+  }
+
+  function redraw(){
+    const md = typeof maxDist === 'function' ? maxDist() : maxDist;
+    const p = azDistToXY(azCtl.get(), distCtl.get(), md);
+    const angle = angleLensToward(p, targetPos);
+    handle.setAttribute('transform', 'rotate('+angle+')');
+    handleGroup.setAttribute('transform', 'translate('+p.x+','+p.y+')');
+    targetGroup.setAttribute('transform', 'translate('+targetPos.x+','+targetPos.y+')');
+    line.setAttribute('x1',p.x); line.setAttribute('y1',p.y);
+    line.setAttribute('x2',targetPos.x); line.setAttribute('y2',targetPos.y);
+
+    // when the mount aircraft is being made invisible in the replay
+    // (<<CAMERA>> swap), fade its marker here too so the graphic matches;
+    // restores fully when the checkbox is unchecked.
+    const transEl = $('air_transparent');
+    const isTransparent = transEl && transEl.checked;
+    mountGlyph.setAttribute('opacity', isTransparent ? '0.32' : '0.85');
+  }
+  window[syncKey] = redraw;
+  const airTransparentEl = $('air_transparent');
+  if (airTransparentEl) airTransparentEl.addEventListener('change', redraw);
+
+  function pointFromEvent(e){
+    const rect = svg.getBoundingClientRect();
+    const scaleX = 220/rect.width, scaleY = 220/rect.height;
+    return { x:(e.clientX-rect.left)*scaleX, y:(e.clientY-rect.top)*scaleY };
+  }
+  function onCamDown(e){ draggingCam = true; onMove(e); svg.setPointerCapture && svg.setPointerCapture(e.pointerId||0); e.stopPropagation(); }
+  function onTargetDown(e){ draggingTarget = true; onMove(e); svg.setPointerCapture && svg.setPointerCapture(e.pointerId||0); e.stopPropagation(); }
+  function onMove(e){
+    if (!draggingCam && !draggingTarget) return;
+    const pt = pointFromEvent(e);
+    if (draggingCam){
+      const md = typeof maxDist === 'function' ? maxDist() : maxDist;
+      const {az,dist} = xyToAzDist(pt.x, pt.y, md);
+      azCtl.set(Math.round(az));
+      distCtl.set(Math.round(dist*10)/10);
+    } else {
+      let dx = pt.x-cx, dy = pt.y-cy;
+      const r = Math.hypot(dx,dy);
+      if (r > padR){ dx *= padR/r; dy *= padR/r; }
+      targetPos = { x: cx+dx, y: cy+dy };
+    }
+    redraw();
+    e.preventDefault();
+  }
+  function onUp(){ draggingCam = false; draggingTarget = false; }
+
+  handleGroup.addEventListener('pointerdown', onCamDown);
+  handleGroup.addEventListener('touchstart', e=>{ onCamDown(e.touches[0]); }, {passive:false});
+  targetGroup.addEventListener('pointerdown', onTargetDown);
+  targetGroup.addEventListener('touchstart', e=>{ onTargetDown(e.touches[0]); }, {passive:false});
+  svg.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  svg.addEventListener('touchmove', e=>{ if(draggingCam||draggingTarget){ onMove(e.touches[0]); e.preventDefault(); } }, {passive:false});
+  window.addEventListener('touchend', onUp);
+
+  redraw();
+}
+
+// ---- orbit-mode pad: circle radius = Distance, draggable via the camera
+// icon or the rim itself, with a curved arrow showing CW/CCW direction. ----
+function initOrbitPad(svgId, distCtl, maxDist, dirGetter, syncKey){
+  const svg = $(svgId);
+  const NS = 'http://www.w3.org/2000/svg';
+  const cx=110, cy=110, padR=90;
+
+  [0.33,0.66,1.0].forEach(f=>{
+    const c = document.createElementNS(NS,'circle');
+    c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r',padR*f);
+    c.setAttribute('fill','none'); c.setAttribute('stroke', f===1.0?'#233042':'#1b2634'); c.setAttribute('stroke-width','1');
+    svg.appendChild(c);
+  });
+  const crossV = document.createElementNS(NS,'line');
+  crossV.setAttribute('x1',cx); crossV.setAttribute('y1',cy-padR); crossV.setAttribute('x2',cx); crossV.setAttribute('y2',cy+padR);
+  crossV.setAttribute('stroke','#1b2634');
+  svg.appendChild(crossV);
+  const crossH = document.createElementNS(NS,'line');
+  crossH.setAttribute('x1',cx-padR); crossH.setAttribute('y1',cy); crossH.setAttribute('x2',cx+padR); crossH.setAttribute('y2',cy);
+  crossH.setAttribute('stroke','#1b2634');
+  svg.appendChild(crossH);
+
+  const glyph = document.createElementNS(NS,'polygon');
+  glyph.setAttribute('points', (cx)+','+(cy-10)+' '+(cx-7)+','+(cy+8)+' '+(cx+7)+','+(cy+8));
+  glyph.setAttribute('fill','#5fd0d6'); glyph.setAttribute('opacity','0.85');
+  svg.appendChild(glyph);
+
+  // orbit path (radius = Distance) -- amber-dim, matching the "route/range"
+  // colour language used for the Pass-mode camera route line, so all pads
+  // share one consistent accent for "the camera's path".
+  const orbitRing = document.createElementNS(NS,'circle');
+  orbitRing.setAttribute('cx',cx); orbitRing.setAttribute('cy',cy);
+  orbitRing.setAttribute('fill','none'); orbitRing.setAttribute('stroke','#8a6428'); orbitRing.setAttribute('stroke-width','2.5');
+  orbitRing.style.cursor = 'ew-resize';
+  svg.appendChild(orbitRing);
+
+  // direction indicator: a small standalone triangle (no connecting arc)
+  // sitting on the ring, offset to one side of the top so it never overlaps
+  // the camera icon. Its own rotation is computed directly from the actual
+  // tangent direction of motion, so CW/CCW are always correctly mirrored.
+  const dirTri = document.createElementNS(NS,'polygon');
+  dirTri.setAttribute('points','7,0 -5,-5 -5,5');
+  dirTri.setAttribute('fill','#e8a33d');
+  svg.appendChild(dirTri);
+
+  const handle = buildCameraGlyph(NS, '#e8a33d');
+  svg.appendChild(handle);
+
+  let dragging = false;
+  let r = 40;
+
+  function redraw(){
+    const md = typeof maxDist === 'function' ? maxDist() : maxDist;
+    const dist = distCtl.get();
+    r = clamp(dist/Math.max(1,md),0,1)*padR;
+    orbitRing.setAttribute('r', r);
+
+    // camera icon fixed at the top (12 o'clock = "ahead" of the target)
+    const p = { x: cx, y: cy-r };
+    const angle = angleLensToward(p, {x:cx,y:cy});
+    handle.setAttribute('transform', 'translate('+p.x+','+p.y+') rotate('+angle+')');
+
+    // direction triangle: offset to one side of the top (away from the
+    // camera icon), pointing along the ring's actual tangent direction of
+    // travel at that spot -- so it mirrors correctly between CW/CCW ("反転").
+    const cw = (dirGetter() !== 'ccw');
+    const centerDeg = cw ? -90+40 : -90-40;
+    const centerRad = centerDeg*D2R;
+    const triX = cx + r*Math.cos(centerRad), triY = cy + r*Math.sin(centerRad);
+    const tangent = cw ? {x:-Math.sin(centerRad), y:Math.cos(centerRad)} : {x:Math.sin(centerRad), y:-Math.cos(centerRad)};
+    const triAngle = Math.atan2(tangent.y, tangent.x)*R2D;
+    dirTri.setAttribute('transform', 'translate('+triX+','+triY+') rotate('+triAngle+')');
+  }
+  window[syncKey] = redraw;
+
+  function pointFromEvent(e){
+    const rect = svg.getBoundingClientRect();
+    const scaleX = 220/rect.width, scaleY = 220/rect.height;
+    return { x:(e.clientX-rect.left)*scaleX, y:(e.clientY-rect.top)*scaleY };
+  }
+  function onDown(e){ dragging = true; onMove(e); svg.setPointerCapture && svg.setPointerCapture(e.pointerId||0); }
+  function onMove(e){
+    if (!dragging) return;
+    const pt = pointFromEvent(e);
+    const md = typeof maxDist === 'function' ? maxDist() : maxDist;
+    const rr = clamp(Math.hypot(pt.x-cx, pt.y-cy), 0, padR);
+    distCtl.set(Math.round((rr/padR)*md*10)/10);
+    redraw();
+    e.preventDefault();
+  }
+  function onUp(){ dragging = false; }
+
+  [orbitRing, handle].forEach(el=>{
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('touchstart', e=>{ onDown(e.touches[0]); }, {passive:false});
+  });
+  svg.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  svg.addEventListener('touchmove', e=>{ onMove(e.touches[0]); e.preventDefault(); }, {passive:false});
+  window.addEventListener('touchend', onUp);
+
+  redraw();
+}
+
+// ---- pass-mode pad: reference point (X/Z offset -- horizontal = right/
+// left, vertical = forward/back, matching the "up = forward" convention
+// used by every other pad) draggable as a plain dot, with a separate,
+// non-draggable line showing the along-track travel (Pass Max Distance),
+// centred exactly on the dot. Offset Y (height) is a separate slider not
+// shown in this top-down-style graphic. ----
+function initPassPad(svgId, offxCtl, offzCtl, passmaxCtl, maxDist, syncKey){
+  const svg = $(svgId);
+  const NS = 'http://www.w3.org/2000/svg';
+  const cx=110, cy=110, padR=90;
+
+  const ring = document.createElementNS(NS,'circle');
+  ring.setAttribute('cx',cx); ring.setAttribute('cy',cy); ring.setAttribute('r',padR);
+  ring.setAttribute('fill','none'); ring.setAttribute('stroke','#233042'); ring.setAttribute('stroke-width','1');
+  svg.appendChild(ring);
+  [0.33,0.66].forEach(f=>{
+    const c = document.createElementNS(NS,'circle');
+    c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r',padR*f);
+    c.setAttribute('fill','none'); c.setAttribute('stroke','#1b2634'); c.setAttribute('stroke-width','1');
+    svg.appendChild(c);
+  });
+  const crossV = document.createElementNS(NS,'line');
+  crossV.setAttribute('x1',cx); crossV.setAttribute('y1',cy-padR); crossV.setAttribute('x2',cx); crossV.setAttribute('y2',cy+padR);
+  crossV.setAttribute('stroke','#1b2634');
+  svg.appendChild(crossV);
+  const crossH = document.createElementNS(NS,'line');
+  crossH.setAttribute('x1',cx-padR); crossH.setAttribute('y1',cy); crossH.setAttribute('x2',cx+padR); crossH.setAttribute('y2',cy);
+  crossH.setAttribute('stroke','#1b2634');
+  svg.appendChild(crossH);
+
+  const glyph = document.createElementNS(NS,'polygon');
+  glyph.setAttribute('points', (cx)+','+(cy-10)+' '+(cx-7)+','+(cy+8)+' '+(cx+7)+','+(cy+8));
+  glyph.setAttribute('fill','#5fd0d6'); glyph.setAttribute('opacity','0.85');
+  svg.appendChild(glyph);
+
+  // camera route (Pass Max Distance, centred on the dot along the same
+  // forward/back axis as the dot's own Z position) -- visual only, not
+  // draggable, so it never fights with dragging the dot.
+  const route = document.createElementNS(NS,'line');
+  route.setAttribute('stroke','#8a6428'); route.setAttribute('stroke-width','3'); route.setAttribute('stroke-linecap','round');
+  route.style.pointerEvents = 'none';
+  svg.appendChild(route);
+
+  // reference point -- plain dot in Pass mode (not the camera glyph)
+  const dot = document.createElementNS(NS,'circle');
+  dot.setAttribute('r','8'); dot.setAttribute('fill','#e8a33d'); dot.setAttribute('stroke','#0c121a'); dot.setAttribute('stroke-width','2');
+  dot.style.cursor = 'grab';
+  svg.appendChild(dot);
+
+  let dragging = false;
+
+  function toXY(offx, offz, md){
+    // "up" on screen = forward (+Z), matching every other pad's convention
+    return { x: cx + clamp(offx/md,-1,1)*padR, y: cy - clamp(offz/md,-1,1)*padR };
+  }
+  function redraw(){
+    const md = typeof maxDist === 'function' ? maxDist() : maxDist;
+    const p = toXY(offxCtl.get(), offzCtl.get(), md);
+    dot.setAttribute('cx',p.x); dot.setAttribute('cy',p.y);
+
+    // route line is centred exactly ON the dot (same point = same Offset Z),
+    // so it always moves together with the dot and never needs its own
+    // independent vertical position. If it would run past the pad's circle
+    // at the dot's horizontal position, only the overflowing part is
+    // clipped (hidden) -- the segment is trimmed to where the vertical
+    // line through the dot actually intersects the circle.
+    const halfLenPx = (passmaxCtl.get()/md)*padR;
+    const dxFromCentre = p.x - cx;
+    const maxHalfSpan = Math.sqrt(Math.max(0, padR*padR - dxFromCentre*dxFromCentre));
+    const top = cy - maxHalfSpan, bottom = cy + maxHalfSpan;
+    route.setAttribute('x1', p.x); route.setAttribute('x2', p.x);
+    route.setAttribute('y1', clamp(p.y - halfLenPx, top, bottom));
+    route.setAttribute('y2', clamp(p.y + halfLenPx, top, bottom));
+  }
+  window[syncKey] = redraw;
+
+  function pointFromEvent(e){
+    const rect = svg.getBoundingClientRect();
+    const scaleX = 220/rect.width, scaleY = 220/rect.height;
+    return { x:(e.clientX-rect.left)*scaleX, y:(e.clientY-rect.top)*scaleY };
+  }
+  function onDown(e){ dragging = true; onMove(e); svg.setPointerCapture && svg.setPointerCapture(e.pointerId||0); }
+  function onMove(e){
+    if (!dragging) return;
+    const pt = pointFromEvent(e);
+    const md = typeof maxDist === 'function' ? maxDist() : maxDist;
+    let dx = pt.x-cx, dy = pt.y-cy;
+    const r = Math.hypot(dx,dy);
+    if (r > padR){ dx *= padR/r; dy *= padR/r; }
+    offxCtl.set(Math.round((dx/padR)*md*10)/10);
+    offzCtl.set(Math.round((-dy/padR)*md*10)/10);
+    redraw();
+    e.preventDefault();
+  }
+  function onUp(){ dragging = false; }
+
+  dot.addEventListener('pointerdown', onDown);
+  dot.addEventListener('touchstart', e=>{ onDown(e.touches[0]); e.stopPropagation(); }, {passive:false});
+  svg.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  svg.addEventListener('touchmove', e=>{ if(dragging){ onMove(e.touches[0]); e.preventDefault(); } }, {passive:false});
+  window.addEventListener('touchend', onUp);
+
+  redraw();
+}
+
+// ---- controls registry ----
+const ctl = {};
+const FIX_MAX_DISTANCE = 100; // fixed dial radius, m (no longer user-adjustable)
+const AIR_MAX_DISTANCE = 60;  // fixed dial radius, m for the Aircraft Camera pad
+const ORBIT_MAX_DISTANCE = 120; // fixed dial radius, m for the Orbit pad
+const PASS_MAX_DISTANCE = 120;  // fixed dial radius, m for the Pass pad (offsets + route length)
+
+function initControls(){
+  ctl.rot_distance = bindSliderNumber('rot_distance_s','rot_distance_n', 50, ()=>{ if (window.__syncOrbitPad) window.__syncOrbitPad(); });
+  ctl.rot_height   = bindSliderNumber('rot_height_s','rot_height_n', 4);
+  ctl.rot_speed    = bindSliderNumber('rot_speed_s','rot_speed_n', 6);
+  ctl.rot_vwander  = bindSliderNumber('rot_vwander_s','rot_vwander_n', 10);
+  ctl.rot_passmax  = bindSliderNumber('rot_passmax_s','rot_passmax_n', 60, ()=>{ if (window.__syncPassPad) window.__syncPassPad(); });
+  ctl.rot_passper  = bindSliderNumber('rot_passper_s','rot_passper_n', 20);
+  ctl.rot_offx     = bindSliderNumber('rot_offx_s','rot_offx_n', 15, ()=>{ if (window.__syncPassPad) window.__syncPassPad(); });
+  ctl.rot_offy     = bindSliderNumber('rot_offy_s','rot_offy_n', 2);
+  ctl.rot_offz     = bindSliderNumber('rot_offz_s','rot_offz_n', 0, ()=>{ if (window.__syncPassPad) window.__syncPassPad(); });
+
+  ctl.fix_distance = bindSliderNumber('fix_distance_s','fix_distance_n', 60, ()=>{ if (window.__syncFixedPad) window.__syncFixedPad(); });
+  ctl.fix_azimuth  = bindSliderNumber('fix_azimuth_s','fix_azimuth_n', 0, ()=>{ if (window.__syncFixedPad) window.__syncFixedPad(); });
+  ctl.fix_elev     = bindSliderNumber('fix_elev_s','fix_elev_n', 12);
+  ctl.fix_drift    = bindSliderNumber('fix_drift_s','fix_drift_n', 4);
+
+  ctl.air_distance = bindSliderNumber('air_distance_s','air_distance_n', 30, ()=>{ if (window.__syncAircraftPad) window.__syncAircraftPad(); });
+  ctl.air_azimuth  = bindSliderNumber('air_azimuth_s','air_azimuth_n', 245, ()=>{ if (window.__syncAircraftPad) window.__syncAircraftPad(); });
+  ctl.air_elev     = bindSliderNumber('air_elev_s','air_elev_n', 15);
+
+  ctl.sh_hz    = bindSliderNumber('sh_hz_s','sh_hz_n', 15);
+  ctl.sh_dist  = bindSliderNumber('sh_dist_s','sh_dist_n', 0.3);
+  ctl.sh_yaw   = bindSliderNumber('sh_yaw_s','sh_yaw_n', 5);
+  ctl.sh_pitch = bindSliderNumber('sh_pitch_s','sh_pitch_n', 8);
+  ctl.sh_roll  = bindSliderNumber('sh_roll_s','sh_roll_n', 3);
+
+  // camera type pills
+  let cameraType = 'rotation';
+  wirePills('cameraTypePills','data-type', (v)=>{
+    cameraType = v;
+    ['rotation','fixed','aircraft'].forEach(m=>{
+      $('panel-'+m).style.display = (m===v) ? '' : 'none';
+    });
+  });
+  window.__getCameraType = ()=>cameraType;
+
+  // rotation style pills
+  let rotStyle = 'orbit';
+  wirePills('rotStylePills','data-style', (v)=>{
+    rotStyle = v;
+    const isOrbit = v==='orbit';
+    $('rot_orbit_fields').style.display = isOrbit ? '' : 'none';
+    $('rot_pass_fields').style.display = isOrbit ? 'none' : '';
+  }, '.pill-sub');
+  window.__getRotStyle = ()=>rotStyle;
+
+  // orbit direction pills
+  let orbitDir = 'cw';
+  wirePills('rotDirPills','data-dir', (v)=>{ orbitDir = v; if (window.__syncOrbitPad) window.__syncOrbitPad(); }, '.pill-sub');
+  window.__getOrbitDir = ()=>orbitDir;
+
+  // pads (placed after pill wiring so their initial redraw() can safely
+  // call window.__getOrbitDir() etc.)
+  initPolarPad('fixedPad', ctl.fix_distance, ctl.fix_azimuth, ()=>FIX_MAX_DISTANCE, '__syncFixedPad');
+  initAircraftPad('aircraftPad', ctl.air_distance, ctl.air_azimuth, ()=>AIR_MAX_DISTANCE, '__syncAircraftPad');
+  initOrbitPad('orbitPad', ctl.rot_distance, ORBIT_MAX_DISTANCE, ()=>window.__getOrbitDir(), '__syncOrbitPad');
+  initPassPad('passPad', ctl.rot_offx, ctl.rot_offz, ctl.rot_passmax, PASS_MAX_DISTANCE, '__syncPassPad');
+
+  // sound pills
+  let sound = 'jet';
+  wirePills('soundPills','data-sound', (v)=>{ sound = v; }, '.pill-sub');
+  window.__getSound = ()=>sound;
+
+  // random & reset buttons
+  document.querySelectorAll('.rndbtn[data-random]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const which = btn.getAttribute('data-random');
+      randomizePanel(which);
+    });
+  });
+  document.querySelectorAll('.rndbtn[data-reset]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const which = btn.getAttribute('data-reset');
+      resetPanel(which);
+    });
+  });
+}
+
+function randomizePanel(which){
+  if (which === 'rotation'){
+    ctl.rot_distance.set(rndRange05(15,60));
+    ctl.rot_height.set(rndRange05(-8,15));
+    ctl.rot_speed.set(rndRange05(3,12));
+    ctl.rot_vwander.set(rndRange05(4,20));
+    ctl.rot_passmax.set(rndRange05(30,120));
+    ctl.rot_passper.set(rndRange05(10,40));
+    ctl.rot_offx.set(rndRange05(-25,25));
+    ctl.rot_offy.set(rndRange05(-8,10));
+    ctl.rot_offz.set(rndRange05(-10,10));
+    if (window.__syncOrbitPad) window.__syncOrbitPad();
+    if (window.__syncPassPad) window.__syncPassPad();
+  } else if (which === 'fixed'){
+    ctl.fix_distance.set(rndRange05(FIX_MAX_DISTANCE*0.3,FIX_MAX_DISTANCE));
+    ctl.fix_azimuth.set(rndRange05(0,359));
+    ctl.fix_elev.set(rndRange05(-15,25));
+    ctl.fix_drift.set(rndRange05(1,9));
+    if (window.__syncFixedPad) window.__syncFixedPad();
+  } else if (which === 'aircraft'){
+    ctl.air_distance.set(rndRange05(4,20));
+    ctl.air_azimuth.set(rndRange05(0,359));
+    ctl.air_elev.set(rndRange05(-20,40));
+    if (window.__syncAircraftPad) window.__syncAircraftPad();
+  } else if (which === 'shake'){
+    ctl.sh_dist.set(rndRange05(0.05,0.6));
+    ctl.sh_yaw.set(rndRange05(2,10));
+    ctl.sh_pitch.set(rndRange05(2,9));
+    ctl.sh_roll.set(rndRange05(1,7));
+  }
+}
+
+const PANEL_CONTROL_KEYS = {
+  rotation: ['rot_distance','rot_height','rot_speed','rot_vwander','rot_passmax','rot_passper','rot_offx','rot_offy','rot_offz'],
+  fixed: ['fix_distance','fix_azimuth','fix_elev','fix_drift'],
+  aircraft: ['air_distance','air_azimuth','air_elev'],
+  shake: ['sh_hz','sh_dist','sh_yaw','sh_pitch','sh_roll']
+};
+const PANEL_CHECKBOXES = {
+  rotation: [{id:'rot_orbit_follow', def:true}, {id:'rot_pass_follow', def:false}],
+  fixed: [{id:'fix_follow', def:true}],
+  aircraft: [{id:'air_transparent', def:false}],
+  shake: []
+};
+
+function resetPanel(which){
+  (PANEL_CONTROL_KEYS[which]||[]).forEach(k=>{ if (ctl[k]) ctl[k].reset(); });
+  (PANEL_CHECKBOXES[which]||[]).forEach(c=>{ const el=$(c.id); if (el) el.checked = c.def; });
+  if (which === 'fixed' && window.__syncFixedPad) window.__syncFixedPad();
+  if (which === 'aircraft' && window.__syncAircraftPad) window.__syncAircraftPad();
+  if (which === 'rotation'){
+    if (window.__syncOrbitPad) window.__syncOrbitPad();
+    if (window.__syncPassPad) window.__syncPassPad();
+  }
+}
+
+/* ---- Step 1: file load ---- */
+function setStepDone(n){ $('num'+n).classList.add('done'); $('num'+n).textContent='\u2713'; }
+function enableStep(n){ $('body'+n).classList.remove('disabled'); }
+
+/* ---- File System Access API support (Chromium browsers only) ---- */
+const FSA_SUPPORTED = typeof window.showSaveFilePicker === 'function';
+let INPUT_FILE_HANDLE = null;   // FileSystemFileHandle for the opened .yfs, if the browser gave us one
+let CUSTOM_SAVE_HANDLE = null;  // FileSystemFileHandle chosen via the "Browse" button
+
+function handleFile(file, handle){
+  const msg = $('loadMsg');
+  msg.classList.remove('err');
+  if (!file){ return; }
+  INPUT_FILE_HANDLE = handle || null;
+  updateSaveLocAvailability(true);
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const text = reader.result;
+      PARSED = parseYFS(text);
+      PARSED.__fileBaseName = file.name.replace(/\.yfs$/i,'');
+      if (PARSED.airplanes.length === 0){
+        msg.textContent = t('msgNoAirplane');
+        msg.classList.add('err');
+        return;
+      }
+      msg.textContent = t('msgLoaded', {file:file.name, count:PARSED.airplanes.length});
+      setStepDone(1);
+      populateStep2();
+      enableStep(2); enableStep(3); enableStep(4);
+    }catch(e){
+      msg.textContent = t('msgLoadError', {err:e.message});
+      msg.classList.add('err');
+      console.error(e);
+    }
+  };
+  reader.onerror = ()=>{ msg.textContent = t('msgReadError'); msg.classList.add('err'); };
+  reader.readAsText(file, 'utf-8');
+}
+
+function populateStep2(){
+  const sel = $('targetSelect');
+  sel.innerHTML = '';
+  PARSED.airplanes.forEach(ap=>{
+    const opt = document.createElement('option');
+    opt.value = ap.index; opt.textContent = t('optRecords', {label:ap.label, count:ap.count});
+    sel.appendChild(opt);
+  });
+  sel.selectedIndex = 0;
+  TARGET_IDX = 0;
+  populateMountSelect();
+  sel.addEventListener('change', ()=>{
+    TARGET_IDX = parseInt(sel.value,10);
+    populateMountSelect();
+  });
+}
+
+function populateMountSelect(){
+  const sel = $('mountSelect');
+  sel.innerHTML = '';
+  PARSED.airplanes.forEach(ap=>{
+    if (ap.index === TARGET_IDX) return;
+    const opt = document.createElement('option');
+    opt.value = ap.index; opt.textContent = ap.label;
+    sel.appendChild(opt);
+  });
+  if (sel.options.length === 0){
+    const opt = document.createElement('option');
+    opt.value = TARGET_IDX; opt.textContent = t('optSameAsTarget', {label:PARSED.airplanes[TARGET_IDX].label});
+    sel.appendChild(opt);
+  }
+}
+
+/* ---- dropzone wiring ---- */
+function initDropzone(){
+  const dz = $('dropzone'), input = $('fileInput');
+  dz.addEventListener('click', async ()=>{
+    if (typeof window.showOpenFilePicker === 'function'){
+      try{
+        const [handle] = await window.showOpenFilePicker({
+          types: [{description:'YSFLIGHT replay', accept:{'text/plain':['.yfs']}}],
+          excludeAcceptAllOption:false
+        });
+        const file = await handle.getFile();
+        handleFile(file, handle);
+        return;
+      }catch(e){
+        if (e && e.name === 'AbortError') return; // user cancelled the picker
+        // fall through to classic input on unexpected errors
+      }
+    }
+    input.click();
+  });
+  input.addEventListener('change', ()=>{ if(input.files[0]) handleFile(input.files[0], null); });
+  ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev, e=>{ e.preventDefault(); dz.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev, e=>{ e.preventDefault(); dz.classList.remove('drag'); }));
+  dz.addEventListener('drop', async e=>{
+    const item = e.dataTransfer.items && e.dataTransfer.items[0];
+    if (item && typeof item.getAsFileSystemHandle === 'function'){
+      try{
+        const handle = await item.getAsFileSystemHandle();
+        if (handle && handle.kind === 'file'){
+          const file = await handle.getFile();
+          handleFile(file, handle);
+          return;
+        }
+      }catch(err){ /* fall through to plain File */ }
+    }
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f, null);
+  });
+}
+
+/* ---- Step 4: save-location controls ---- */
+function updateSaveLocAvailability(fromFileLoad){
+  const samePill = document.querySelector('#saveLocPills .pill-sub[data-loc="same"]');
+  const msg = $('saveLocMsg');
+  const currentlyOnSame = window.__getSaveLocMode && window.__getSaveLocMode() === 'same';
+  if (!FSA_SUPPORTED){
+    samePill.classList.add('disabled');
+    msg.textContent = t('fsaUnsupported');
+    if (fromFileLoad && currentlyOnSame && window.__forceSaveLocMode) window.__forceSaveLocMode('custom');
+    return;
+  }
+  if (!INPUT_FILE_HANDLE){
+    samePill.classList.add('disabled');
+    msg.textContent = t('fsaNoHandle');
+    if (fromFileLoad && currentlyOnSame && window.__forceSaveLocMode) window.__forceSaveLocMode('custom');
+  } else {
+    samePill.classList.remove('disabled');
+    msg.textContent = '';
+  }
+}
+
+function initSaveLoc(){
+  let saveLocMode = 'same';
+  wirePills('saveLocPills','data-loc', (v)=>{
+    if (v==='same' && (!FSA_SUPPORTED || !INPUT_FILE_HANDLE)) { // ignore disabled selection
+      document.querySelector('#saveLocPills .pill-sub[data-loc="custom"]').classList.add('active');
+      document.querySelector('#saveLocPills .pill-sub[data-loc="same"]').classList.remove('active');
+      saveLocMode = 'custom';
+      return;
+    }
+    saveLocMode = v;
+    $('saveLocCustomRow').style.display = (v==='custom') ? 'flex' : 'none';
+  }, '.pill-sub');
+  window.__getSaveLocMode = ()=>saveLocMode;
+  window.__forceSaveLocMode = (v)=>{
+    document.querySelectorAll('#saveLocPills .pill-sub').forEach(p=>p.classList.remove('active'));
+    const target = document.querySelector('#saveLocPills .pill-sub[data-loc="'+v+'"]');
+    if (target) target.classList.add('active');
+    saveLocMode = v;
+    $('saveLocCustomRow').style.display = (v==='custom') ? 'flex' : 'none';
+  };
+  // "same" starts as the default, but the custom (path) row only makes
+  // sense once "custom" is actually selected -- keep it hidden until then.
+  $('saveLocCustomRow').style.display = 'none';
+
+  const browseBtn = $('saveLocBrowseBtn');
+  if (!FSA_SUPPORTED){
+    browseBtn.disabled = true;
+    browseBtn.style.opacity = '0.4';
+    browseBtn.style.cursor = 'not-allowed';
+  }
+  browseBtn.addEventListener('click', async ()=>{
+    if (!FSA_SUPPORTED) return;
+    try{
+      const suggested = (PARSED && PARSED.__fileBaseName ? PARSED.__fileBaseName : 'replay') + '_' + dateSuffix() + '.yfs';
+      const handle = await window.showSaveFilePicker({
+        suggestedName: suggested,
+        types: [{description:'YSFLIGHT replay', accept:{'text/plain':['.yfs']}}]
+      });
+      CUSTOM_SAVE_HANDLE = handle;
+      $('saveLocPath').value = handle.name;
+    }catch(e){
+      if (e && e.name === 'AbortError') return;
+      console.error(e);
+    }
+  });
+  updateSaveLocAvailability();
+}
+
+/* ---- Step 4: generate ---- */
+function log(msg, cls){
+  const el = $('log');
+  el.style.display='block';
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function generate(){
+  $('log').innerHTML=''; $('log').style.display='none';
+  if (!PARSED){ log(t('logNeedFile'),'l-err'); return; }
+
+  const target = PARSED.airplanes[TARGET_IDX];
+  const cameraType = window.__getCameraType();
+  const soundType = window.__getSound();
+  log(t('logTarget', {label:target.label}));
+  log(t('logCameraType', {type:cameraType}));
+
+  const params = {
+    seed: Math.floor(rnd()*1e9),
+    sample_hz: ctl.sh_hz.get(),
+    rot_style: window.__getRotStyle(),
+    rot_orbit_dir: window.__getOrbitDir(),
+    rot_distance: ctl.rot_distance.get(),
+    rot_height: ctl.rot_height.get(),
+    rot_speed: ctl.rot_speed.get(),
+    rot_vwander: ctl.rot_vwander.get(),
+    rot_orbit_follow_attitude: $('rot_orbit_follow').checked,
+    rot_passmax: ctl.rot_passmax.get(),
+    rot_passper: ctl.rot_passper.get(),
+    rot_offx: ctl.rot_offx.get(),
+    rot_offy: ctl.rot_offy.get(),
+    rot_offz: ctl.rot_offz.get(),
+    rot_pass_follow_attitude: $('rot_pass_follow').checked,
+    fix_distance: ctl.fix_distance.get(),
+    fix_azimuth: ctl.fix_azimuth.get(),
+    fix_elev: ctl.fix_elev.get(),
+    fix_drift: ctl.fix_drift.get(),
+    fix_follow_attitude: $('fix_follow').checked,
+    air_distance: ctl.air_distance.get(), air_azimuth: ctl.air_azimuth.get(), air_elev: ctl.air_elev.get(),
+    sh_dist: ctl.sh_dist.get(), sh_yaw: ctl.sh_yaw.get(), sh_pitch: ctl.sh_pitch.get(), sh_roll: ctl.sh_roll.get(),
+  };
+
+  let mountTrack = null, mountAp = null;
+  if (cameraType === 'aircraft'){
+    const mountIdx = parseInt($('mountSelect').value,10);
+    mountAp = PARSED.airplanes[mountIdx];
+    mountTrack = {times:mountAp.times, pos:mountAp.pos};
+    log(t('logMount', {label:mountAp.label}));
+  }
+
+  let result;
+  try{
+    result = computeCameraTrack(target, cameraType, params, mountTrack);
+  }catch(e){
+    log(t('logCameraCalcError', {err:e.message}), 'l-err');
+    console.error(e);
+    return;
+  }
+  const {times:camTimes, track} = result;
+  log(t('logFramesComputed', {count:track.length, hz:params.sample_hz}),'l-ok');
+
+  const identifyName = soundType==='jet' ? '<<CAMERA>>' : '<<CAMERA-P>>';
+  const newId = PARSED.maxId + 1;
+  const blockText = buildAirplaneBlock(identifyName, PARSED.lines[target.headerStart+1], newId, track, camTimes, PARSED.eol);
+  log(t('logBlockCreated', {id:newId, name:identifyName}),'l-ok');
+
+  let transparentEdit = null;
+  if (cameraType==='aircraft' && $('air_transparent').checked && mountAp){
+    transparentEdit = {headerStart: mountAp.headerStart, newName: identifyName};
+    log(t('logMountTransparent', {name1:mountAp.name, name2:identifyName}),'l-warn');
+  }
+
+  const outText = assembleOutput(PARSED, blockText, transparentEdit);
+  const suffix = dateSuffix();
+  const baseName = (PARSED.__fileBaseName || 'replay') + '_' + suffix + '.yfs';
+
+  const saveMode = window.__getSaveLocMode ? window.__getSaveLocMode() : 'custom';
+  let wroteViaFSA = false;
+
+  if (FSA_SUPPORTED && saveMode === 'same' && INPUT_FILE_HANDLE){
+    try{
+      const handle = await window.showSaveFilePicker({
+        suggestedName: baseName,
+        startIn: INPUT_FILE_HANDLE,
+        types: [{description:'YSFLIGHT replay', accept:{'text/plain':['.yfs']}}]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(outText);
+      await writable.close();
+      wroteViaFSA = true;
+      log(t('logSaved', {name:handle.name}),'l-ok');
+    }catch(e){
+      if (e && e.name === 'AbortError'){ log(t('logSaveCancelled'),'l-warn'); return; }
+      log(t('logSaveFallback', {err:e.message}),'l-warn');
+    }
+  } else if (FSA_SUPPORTED && saveMode === 'custom' && CUSTOM_SAVE_HANDLE){
+    try{
+      const writable = await CUSTOM_SAVE_HANDLE.createWritable();
+      await writable.write(outText);
+      await writable.close();
+      wroteViaFSA = true;
+      log(t('logSaved', {name:CUSTOM_SAVE_HANDLE.name}),'l-ok');
+    }catch(e){
+      log(t('logSaveCustomFallback', {err:e.message}),'l-warn');
+    }
+  }
+
+  if (!wroteViaFSA){
+    const blob = new Blob([outText], {type:'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = baseName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 10000);
+    log(t('logDownloading', {name:baseName}),'l-ok');
+  }
+
+  setStepDone(4);
+  log(t('logDone', {name:baseName}),'l-ok');
+}
+
+/* ---- boot ---- */
+document.addEventListener('DOMContentLoaded', ()=>{
+  applyI18n();
+  initControls();
+  initDropzone();
+  initSaveLoc();
+  $('generateBtn').addEventListener('click', generate);
+});
+
+})();
+
+</script>
+</body>
+</html>
