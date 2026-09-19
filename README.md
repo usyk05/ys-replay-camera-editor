@@ -17,7 +17,7 @@ It should also work with custom builds of YSFlight, although some compatibility 
 ## How to Use
 
 1. Save a flight record in YSFlight.
-2. Drag and drop the `.yfs` file into YS CAMERA EDITOR.
+2. Drag and drop the `.yfs` file into YS REPLAY CAMERA EDITOR.
 3. Configure the camera settings.
 4. Export the edited `.yfs` file. The original file will not be overwritten.
 5. Load the edited replay in YSFlight.
